@@ -5,7 +5,7 @@ export default async function sitemap() {
     .from("campaigns")
     .select("id")
 
-  const baseUrl = "https://fundtracker-laal.vercel.app // change after deploy
+  const baseUrl = "https://fundtracker-laal.vercel.app" // change after deploy
 
   const campaignUrls =
     data?.map((c) => ({
