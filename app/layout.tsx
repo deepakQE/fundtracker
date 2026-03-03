@@ -22,12 +22,11 @@ export const metadata: Metadata = {
     "Explore and analyze trending fundraising campaigns across platforms. Compare funding progress, trust levels, and growth insights.",
 
   keywords: [
-    "fundraising",
-    "crowdfunding",
-    "donations",
-    "campaign tracker",
-    "NGO funding",
-    "fundraising analytics",
+    "fundraising analytics tool",
+    "crowdfunding campaign tracker",
+    "donation tracking platform",
+    "NGO funding analytics",
+    "fundraising insights",
   ],
 
   metadataBase: new URL("https://fundtracker.me"),
@@ -52,18 +51,41 @@ export const metadata: Metadata = {
     description:
       "Discover trending crowdfunding campaigns and analyze their growth.",
   },
-};
+}
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "FundTracker",
+    applicationCategory: "FinanceApplication",
+    operatingSystem: "Web",
+    description:
+      "FundTracker is a fundraising analytics tool that helps users analyze and compare crowdfunding campaigns.",
+    url: "https://fundtracker.me",
+    creator: {
+      "@type": "Person",
+      name: "Deepak",
+    },
+  }
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
+        {/* ===== Structured Data (SEO Boost) ===== */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData),
+          }}
+        />
+
         {/* ================= NAVBAR ================= */}
         <header className="bg-white shadow-sm sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -73,27 +95,18 @@ export default function RootLayout({
             </Link>
 
             <nav className="flex gap-6 text-sm font-medium">
-              <Link
-                href="/"
-                className="hover:text-emerald-600 transition"
-              >
+              <Link href="/" className="hover:text-emerald-600 transition">
                 Home
               </Link>
-              <Link
-                    href="/about"
-                    className="hover:text-emerald-600 transition"
-                  >
-                    About
+
+              <Link href="/about" className="hover:text-emerald-600 transition">
+                About
               </Link>
 
-              <Link
-                href="/admin"
-                className="hover:text-emerald-600 transition"
-              >
+              <Link href="/admin" className="hover:text-emerald-600 transition">
                 Admin
               </Link>
             </nav>
-
           </div>
         </header>
 
@@ -106,7 +119,6 @@ export default function RootLayout({
             © {new Date().getFullYear()} FundTracker. All rights reserved.
           </div>
         </footer>
-
       </body>
     </html>
   )
