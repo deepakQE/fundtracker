@@ -1,3 +1,4 @@
+import Link from "next/link";
 export const metadata = {
   title: "About FundTracker",
   description:
@@ -17,6 +18,16 @@ export default function AboutPage() {
         Instead of manually searching across multiple platforms, FundTracker
         provides a centralized view of campaign progress, growth trends,
         and funding insights.
+      </p>
+      <p className="mt-6 text-gray-700">
+            If you're looking for a dedicated 
+            <Link 
+                href="/fundraising-analytics-tool"
+                className="text-emerald-600 font-semibold hover:underline ml-1"
+            >
+                fundraising analytics tool
+            </Link>, 
+            FundTracker provides structured insights to evaluate campaign performance.
       </p>
 
       <h2 className="text-2xl font-semibold mt-10 mb-4">
