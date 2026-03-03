@@ -30,7 +30,11 @@ export const metadata: Metadata = {
     "fundraising analytics",
   ],
 
-  metadataBase: new URL("https://fundtracker.me"), // 🔥 change if custom domain later
+  metadataBase: new URL("https://fundtracker.me"),
+
+  verification: {
+    google: "Ll3ak7r1uzXGF1E6QoNZIiatW-EiX99wwf2wTj_cG",
+  },
 
   openGraph: {
     title: "FundTracker – Trending Fundraising Campaigns",
@@ -48,7 +52,7 @@ export const metadata: Metadata = {
     description:
       "Discover trending crowdfunding campaigns and analyze their growth.",
   },
-}
+};
 
 export default function RootLayout({
   children,
