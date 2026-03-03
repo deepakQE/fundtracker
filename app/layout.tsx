@@ -79,6 +79,12 @@ export default function RootLayout({
               >
                 Home
               </Link>
+              <Link
+                    href="/about"
+                    className="hover:text-emerald-600 transition"
+                  >
+                    About
+              </Link>
 
               <Link
                 href="/admin"
