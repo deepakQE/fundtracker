@@ -30,13 +30,13 @@ export const metadata: Metadata = {
     "fundraising analytics",
   ],
 
-  metadataBase: new URL("https://fundtracker-laal.vercel.app"), // 🔥 change if custom domain later
+  metadataBase: new URL("https://fundtracker.me"), // 🔥 change if custom domain later
 
   openGraph: {
     title: "FundTracker – Trending Fundraising Campaigns",
     description:
       "Track and analyze the most trending crowdfunding campaigns in one place.",
-    url: "https://fundtracker-laal.vercel.app",
+    url: "https://fundtracker.me",
     siteName: "FundTracker",
     locale: "en_US",
     type: "website",

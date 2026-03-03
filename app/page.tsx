@@ -31,52 +31,79 @@ export default function Home() {
   /* Fetch Campaigns      */
   /* -------------------- */
 
-  useEffect(() => {
-    async function fetchData() {
-      const { data, error } = await supabase
-        .from("campaigns")
-        .select("*")
+  /* -------------------- */
+/* 🚀 Fetch + Realtime  */
+/* -------------------- */
 
-      if (error) {
-        console.error("Fetch Error:", error)
-        setLoading(false)
-        return
-      }
+useEffect(() => {
+  async function fetchCampaigns() {
+    setLoading(true)
 
-      if (data) {
-        const now = new Date().getTime()
+    const { data, error } = await supabase
+      .from("campaigns")
+      .select("*")
 
-        const ranked: Campaign[] = data.map((campaign: Campaign) => {
-          const progress =
-            campaign.goal > 0
-              ? (campaign.amount / campaign.goal) * 100
-              : 0
-
-          const createdAt = new Date(campaign.created_at).getTime()
-          const daysOld = (now - createdAt) / (1000 * 60 * 60 * 24)
-
-          const recencyScore = Math.max(0, 100 - daysOld * 5)
-          const amountScore = campaign.amount / 1000
-
-          const trend_score =
-            progress * 0.6 +
-            recencyScore * 0.3 +
-            amountScore * 0.1
-
-          return {
-            ...campaign,
-            trend_score,
-          }
-        })
-
-        setCampaigns(ranked)
-      }
-
+    if (error) {
+      console.error("Fetch Error:", error)
       setLoading(false)
+      return
     }
 
-    fetchData()
-  }, [])
+    if (data) {
+      const now = Date.now()
+
+      const ranked: Campaign[] = data.map((campaign: Campaign) => {
+        const progress =
+          campaign.goal > 0
+            ? (campaign.amount / campaign.goal) * 100
+            : 0
+
+        const createdAt = new Date(campaign.created_at).getTime()
+        const daysOld = (now - createdAt) / (1000 * 60 * 60 * 24)
+
+        const recencyScore = Math.max(0, 100 - daysOld * 5)
+        const amountScore = campaign.amount / 1000
+
+        const trend_score =
+          progress * 0.6 +
+          recencyScore * 0.3 +
+          amountScore * 0.1
+
+        return {
+          ...campaign,
+          trend_score,
+        }
+      })
+
+      setCampaigns(ranked)
+    }
+
+    setLoading(false)
+  }
+
+  // Initial load
+  fetchCampaigns()
+
+  // Realtime subscription
+  const channel = supabase
+    .channel("campaign-realtime")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "campaigns",
+      },
+      () => {
+        fetchCampaigns()
+      }
+    )
+    .subscribe()
+
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}, [])
 
   /* Reset page on filter change */
   useEffect(() => {
