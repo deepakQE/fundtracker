@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 import { calculateProgress, formatInrCurrency, toSafeNumber } from "@/lib/currency"
 import { getMockPeopleHelpedIncrement, getMockTrustScore } from "@/lib/mockAnalyticsData"
+import { getPrimaryCampaigns } from "@/lib/campaignData"
 
 type NGORanking = {
   name: string
@@ -27,51 +27,16 @@ export default function NGORankingsPage() {
 
   async function fetchNGORankings() {
     try {
-      const { data: supabaseData } = await supabase
-        .from("campaigns")
-        .select("*")
-
-      let allCampaigns: any[] = supabaseData || []
-
-      // Fetch GlobalGiving
-      try {
-        const apiKey = process.env.NEXT_PUBLIC_GLOBALGIVING_API_KEY
-        if (apiKey) {
-          const response = await fetch(
-            `https://api.globalgiving.org/api/public/projectservice/featured/projects/summary?api_key=${apiKey}`,
-            { headers: { Accept: "application/json" } }
-          )
-          const ggData = await response.json()
-
-          if (ggData?.projects?.project) {
-            const ggCampaigns = ggData.projects.project.map((proj: any) => {
-              const parsedAmount = Number(proj.funding)
-              const parsedGoal = Number(proj.goal)
-
-              return {
-                id: `gg-${proj.id}`,
-                title: proj.title,
-                platform: "GlobalGiving",
-                amount: Number.isFinite(parsedAmount) ? Math.round(parsedAmount) : Number.NaN,
-                goal: Number.isFinite(parsedGoal) ? Math.round(parsedGoal) : Number.NaN,
-                category: proj.themeName || "General",
-                image: proj.imageLink,
-                created_at: new Date().toISOString(),
-                organization_name: proj.organizationName || "Unknown NGO",
-              }
-            })
-            allCampaigns = [...allCampaigns, ...ggCampaigns]
-          }
-        }
-      } catch (err) {
-        console.error("Error:", err)
+      const { campaigns: allCampaigns, source } = await getPrimaryCampaigns()
+      if (source === "mock") {
+        console.warn("Using mock campaigns fallback because Supabase returned empty data")
       }
 
       // Group by organization
       const ngoMap = new Map()
 
       allCampaigns.forEach((campaign) => {
-        const ngoName = campaign.ngo_name || campaign.organization_name || "Unknown NGO"
+        const ngoName = campaign.ngo_name || "Unknown NGO"
         
         if (!ngoMap.has(ngoName)) {
           ngoMap.set(ngoName, {

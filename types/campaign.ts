@@ -1,5 +1,6 @@
 export interface Campaign {
   id: string
+  external_id?: string
   title: string
   platform: string
   amount: number

@@ -2,25 +2,7 @@ import { supabase } from "@/lib/supabase"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { calculateProgress, formatInrCurrency } from "@/lib/currency"
-
-const fallbackCampaigns = [
-  {
-    id: "1",
-    title: "Emergency Medical Camp in Rural Village",
-    category: "Healthcare",
-    amount: 15000000,
-    goal: 25000000,
-    image: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1200",
-    description: "Providing medical care to underprivileged villages.",
-    platform: "FundTracker",
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    url: "",
-  },
-]
-
-function getFallbackCampaignById(id: string) {
-  return fallbackCampaigns.find((campaign) => campaign.id === id) || null
-}
+import { getMockCampaignById } from "@/lib/mockCampaignData"
 
 /* ================= SEO ================= */
 
@@ -37,7 +19,7 @@ export async function generateMetadata({
     .eq("id", id)
     .single()
 
-  const campaign = data || getFallbackCampaignById(id)
+  const campaign = data || getMockCampaignById(id)
 
   if (!campaign) {
     return { title: "Campaign Not Found" }
@@ -69,7 +51,7 @@ export default async function CampaignDetail({
     .eq("id", id)
     .single()
 
-  const finalCampaign = campaign || getFallbackCampaignById(id)
+  const finalCampaign = campaign || getMockCampaignById(id)
 
   if (!finalCampaign) {
     return notFound()

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase"
 import Link from "next/link"
 import NewsletterForm from "../components/NewsletterForm"
 import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
-import { getMockCampaigns } from "@/lib/mockCampaignData"
+import { getPrimaryCampaigns } from "@/lib/campaignData"
 
 type Campaign = {
   id: string
@@ -42,79 +42,13 @@ export default function Home() {
       setLoading(true)
 
       try {
-        /* -------------------- */
-        /* 1️⃣ Fetch Supabase */
-        /* -------------------- */
-
-        const { data: supabaseData, error } = await supabase
-          .from("campaigns")
-          .select("*")
-
-        if (error) {
-          console.error("Supabase Fetch Error:", error)
+        const { campaigns: allCampaigns, source } = await getPrimaryCampaigns()
+        if (source === "mock") {
+          console.warn("Using mock campaigns fallback because Supabase returned empty data")
         }
 
         /* -------------------- */
-        /* 2️⃣ Fetch GlobalGiving */
-        /* -------------------- */
-
-        let globalGivingCampaigns: Campaign[] = []
-
-        try {
-          const apiKey = process.env.NEXT_PUBLIC_GLOBALGIVING_API_KEY
-
-          if (apiKey) {
-            const response = await fetch(
-              `https://api.globalgiving.org/api/public/projectservice/featured/projects/summary?api_key=${apiKey}`,
-              { headers: { Accept: "application/json" } }
-            )
-
-            const ggData = await response.json()
-
-            if (ggData?.projects?.project) {
-              globalGivingCampaigns = ggData.projects.project.map((proj: any) => {
-                const parsedAmount = Number(proj.funding)
-                const parsedGoal = Number(proj.goal)
-
-                return {
-                  id: `gg-${proj.id}`,
-                  title: proj.title,
-                  platform: "GlobalGiving",
-                  amount: Number.isFinite(parsedAmount) ? Math.round(parsedAmount) : Number.NaN,
-                  goal: Number.isFinite(parsedGoal) ? Math.round(parsedGoal) : Number.NaN,
-                  category: proj.themeName || "General",
-
-                  /* Improve image - try multiple image sources */
-                  image: proj.image?.big || 
-                         proj.image?.medium || 
-                         `https://www.globalgiving.org/pfil/${proj.id}/pict_large.jpg` ||
-                         proj.imageLink,
-
-                  created_at: new Date().toISOString(),
-                  url: undefined, // GlobalGiving URLs don't work reliably, so hide them
-                }
-              })
-            }
-          }
-        } catch (apiError) {
-          console.error("GlobalGiving API Error:", apiError)
-        }
-
-        /* -------------------- */
-        /* 3️⃣ Merge campaigns */
-        /* -------------------- */
-
-        const combinedCampaigns = [
-          ...(supabaseData || []),
-          ...globalGivingCampaigns,
-        ]
-
-        const mockCampaigns = getMockCampaigns()
-
-        const allCampaigns = [...combinedCampaigns, ...mockCampaigns]
-
-        /* -------------------- */
-        /* 4️⃣ Ranking Algorithm */
+        /* 2️⃣ Ranking Algorithm */
         /* -------------------- */
 
         const now = Date.now()

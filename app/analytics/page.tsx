@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 import { Campaign } from "@/types/campaign"
 import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
 import { getMockWeeklyTrends } from "@/lib/mockAnalyticsData"
+import { getPrimaryCampaigns } from "@/lib/campaignData"
 
 type AnalyticsMetrics = {
   total_raised: number
@@ -41,47 +41,9 @@ export default function AnalyticsPage() {
 
   async function fetchAnalytics() {
     try {
-      const { data: supabaseData } = await supabase
-        .from("campaigns")
-        .select("*")
-
-      let allCampaigns: Campaign[] = supabaseData || []
-
-      // Fetch GlobalGiving campaigns
-      try {
-        const apiKey = process.env.NEXT_PUBLIC_GLOBALGIVING_API_KEY
-        if (apiKey) {
-          const response = await fetch(
-            `https://api.globalgiving.org/api/public/projectservice/featured/projects/summary?api_key=${apiKey}`,
-            { headers: { Accept: "application/json" } }
-          )
-          const ggData = await response.json()
-
-          if (ggData?.projects?.project) {
-            const ggCampaigns = ggData.projects.project.map((proj: any) => {
-              const parsedAmount = Number(proj.funding)
-              const parsedGoal = Number(proj.goal)
-
-              return {
-                id: `gg-${proj.id}`,
-                title: proj.title,
-                platform: "GlobalGiving",
-                amount: Number.isFinite(parsedAmount) ? Math.round(parsedAmount) : Number.NaN,
-                goal: Number.isFinite(parsedGoal) ? Math.round(parsedGoal) : Number.NaN,
-                category: proj.themeName || "General",
-                image: proj.image?.big || 
-                       proj.image?.medium || 
-                       `https://www.globalgiving.org/pfil/${proj.id}/pict_large.jpg` ||
-                       proj.imageLink,
-                created_at: new Date().toISOString(),
-                url: undefined,
-              }
-            })
-            allCampaigns = [...allCampaigns, ...ggCampaigns]
-          }
-        }
-      } catch (err) {
-        console.error("GlobalGiving API Error:", err)
+      const { campaigns: allCampaigns, source } = await getPrimaryCampaigns()
+      if (source === "mock") {
+        console.warn("Using mock campaigns fallback because Supabase returned empty data")
       }
 
       // Calculate metrics

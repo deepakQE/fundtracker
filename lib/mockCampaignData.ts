@@ -84,5 +84,6 @@ export function getMockCampaigns(): Campaign[] {
 }
 
 export function getMockCampaignById(id: string): Campaign | null {
-  return getMockCampaigns().find((campaign) => campaign.id === id) || null
+  const normalizedId = id === "1" ? "mock-1" : id
+  return getMockCampaigns().find((campaign) => campaign.id === normalizedId) || null
 }

@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 import { calculateProgress, formatInrCurrency, toSafeNumber } from "@/lib/currency"
+import { getPrimaryCampaigns } from "@/lib/campaignData"
 
 type PlatformData = {
   name: string
@@ -26,40 +26,9 @@ export default function PlatformComparisonPage() {
 
   async function fetchPlatformData() {
     try {
-      const { data: supabaseData } = await supabase
-        .from("campaigns")
-        .select("*")
-
-      let allCampaigns: any[] = supabaseData || []
-
-      // Fetch GlobalGiving
-      try {
-        const apiKey = process.env.NEXT_PUBLIC_GLOBALGIVING_API_KEY
-        if (apiKey) {
-          const response = await fetch(
-            `https://api.globalgiving.org/api/public/projectservice/featured/projects/summary?api_key=${apiKey}`,
-            { headers: { Accept: "application/json" } }
-          )
-          const ggData = await response.json()
-
-          if (ggData?.projects?.project) {
-            const ggCampaigns = ggData.projects.project.map((proj: any) => {
-              const parsedAmount = Number(proj.funding)
-              const parsedGoal = Number(proj.goal)
-
-              return {
-                id: `gg-${proj.id}`,
-                platform: "GlobalGiving",
-                amount: Number.isFinite(parsedAmount) ? Math.round(parsedAmount) : Number.NaN,
-                goal: Number.isFinite(parsedGoal) ? Math.round(parsedGoal) : Number.NaN,
-                created_at: new Date().toISOString(),
-              }
-            })
-            allCampaigns = [...allCampaigns, ...ggCampaigns]
-          }
-        }
-      } catch (err) {
-        console.error("Error:", err)
+      const { campaigns: allCampaigns, source } = await getPrimaryCampaigns()
+      if (source === "mock") {
+        console.warn("Using mock campaigns fallback because Supabase returned empty data")
       }
 
       // Calculate platform stats

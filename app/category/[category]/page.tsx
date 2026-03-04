@@ -1,11 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 import { useParams } from "next/navigation"
 import { Campaign } from "@/types/campaign"
 import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
-import { getMockCampaigns } from "@/lib/mockCampaignData"
+import { getPrimaryCampaigns } from "@/lib/campaignData"
 
 const CATEGORIES = {
   healthcare: { label: "🏥 Healthcare", icon: "🏥", description: "Medical aid, health awareness, and treatment campaigns", keywords: ["health", "medical", "healthcare", "hospital", "disease", "doctor", "patient"] },
@@ -39,53 +38,14 @@ export default function CategoryPage() {
     setLoading(true)
 
     try {
-      const { data: supabaseData } = await supabase
-        .from("campaigns")
-        .select("*")
-
-      let campaigns: Campaign[] = supabaseData || []
-
-      // Fetch GlobalGiving
-      try {
-        const apiKey = process.env.NEXT_PUBLIC_GLOBALGIVING_API_KEY
-        if (apiKey) {
-          const response = await fetch(
-            `https://api.globalgiving.org/api/public/projectservice/featured/projects/summary?api_key=${apiKey}`,
-            { headers: { Accept: "application/json" } }
-          )
-          const ggData = await response.json()
-
-          if (ggData?.projects?.project) {
-            const ggCampaigns = ggData.projects.project.map((proj: any) => {
-              const parsedAmount = Number(proj.funding)
-              const parsedGoal = Number(proj.goal)
-
-              return {
-                id: `gg-${proj.id}`,
-                title: proj.title,
-                platform: "GlobalGiving",
-                amount: Number.isFinite(parsedAmount) ? Math.round(parsedAmount) : Number.NaN,
-                goal: Number.isFinite(parsedGoal) ? Math.round(parsedGoal) : Number.NaN,
-                category: proj.themeName || "General",
-                image: proj.image?.big || proj.image?.medium || proj.imageLink,
-                created_at: new Date().toISOString(),
-                trend_score: Math.random() * 100,
-              }
-            })
-            campaigns = [...campaigns, ...ggCampaigns]
-          }
-        }
-      } catch (err) {
-        console.error("Error:", err)
+      const { campaigns, source } = await getPrimaryCampaigns()
+      if (source === "mock") {
+        console.warn("Using mock campaigns fallback because Supabase returned empty data")
       }
-
-      const mockCampaigns = getMockCampaigns()
-
-      campaigns = [...campaigns, ...mockCampaigns]
 
       // Filter by selected category using keywords
       const keywords = categoryInfo.keywords || [categorySlug]
-      let filtered = campaigns.filter((c) => {
+      let filtered = campaigns.filter((c: Campaign) => {
         const campaignText = (c.title + " " + c.category).toLowerCase()
         return keywords.some(keyword => campaignText.includes(keyword.toLowerCase()))
       })
