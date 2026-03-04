@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import type { Campaign } from "@/types/campaign"
+import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -59,7 +60,7 @@ export default function AdminPage() {
   const totalCampaigns = campaigns.length
 
   const totalRaised = campaigns.reduce(
-    (sum, c) => sum + (c.amount || 0),
+    (sum, c) => sum + toSafeNumber(c.amount),
     0
   )
 
@@ -68,9 +69,7 @@ export default function AdminPage() {
       ? campaigns.reduce(
           (sum, c) =>
             sum +
-            (c.goal > 0
-              ? (c.amount / c.goal) * 100
-              : 0),
+            calculateProgress(c.amount, c.goal),
           0
         ) / campaigns.length
       : 0
@@ -197,7 +196,7 @@ export default function AdminPage() {
 
           <div className="bg-white p-6 rounded-xl shadow">
             <p className="text-gray-500">Total Raised</p>
-            <h2 className="text-2xl font-bold">₹ {totalRaised}</h2>
+            <h2 className="text-2xl font-bold">{formatInrCurrency(totalRaised)}</h2>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow">
@@ -306,10 +305,7 @@ export default function AdminPage() {
         {/* Campaign List */}
         <div className="space-y-4">
           {campaigns.map((campaign) => {
-            const progress =
-              campaign.goal > 0
-                ? (campaign.amount / campaign.goal) * 100
-                : 0
+            const progress = calculateProgress(campaign.amount, campaign.goal)
 
             return (
               <div
@@ -323,7 +319,7 @@ export default function AdminPage() {
                   {campaign.platform} | {campaign.category}
                 </p>
                 <p className="text-sm mb-2">
-                  ₹ {campaign.amount} / ₹ {campaign.goal}
+                  {formatInrRange(campaign.amount, campaign.goal)}
                 </p>
 
                 <div className="w-full bg-gray-200 h-2 rounded">
