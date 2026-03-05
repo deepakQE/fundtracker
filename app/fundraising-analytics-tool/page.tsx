@@ -4,6 +4,8 @@ export const metadata = {
     "FundTracker is a fundraising analytics tool that helps donors, NGOs, and researchers analyze crowdfunding campaign performance and growth trends.",
 };
 
+import Link from "next/link"
+
 export default function FundraisingAnalyticsTool() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -117,12 +119,12 @@ export default function FundraisingAnalyticsTool() {
         <section className="text-center bg-white p-8 rounded-xl shadow-sm border border-gray-100">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Ready to analyze campaigns?</h2>
           <p className="text-gray-700 mb-6">Start exploring our comprehensive fundraising analytics platform today.</p>
-          <a
+          <Link
             href="/"
             className="inline-block px-8 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
           >
             Start Analyzing Now
-          </a>
+          </Link>
         </section>
 
       </div>

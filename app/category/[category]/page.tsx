@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useParams } from "next/navigation"
 import { Campaign } from "@/types/campaign"
 import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
 import { getPrimaryCampaigns } from "@/lib/campaignData"
+import CampaignSkeleton from "@/components/CampaignSkeleton"
+import CampaignImage from "@/components/CampaignImage"
 
 const CATEGORIES = {
   healthcare: { label: "🏥 Healthcare", icon: "🏥", description: "Medical aid, health awareness, and treatment campaigns", keywords: ["health", "medical", "healthcare", "hospital", "disease", "doctor", "patient"] },
@@ -23,55 +25,56 @@ export default function CategoryPage() {
   const [comparisonList, setComparisonList] = useState<Campaign[]>([])
   const [sortBy, setSortBy] = useState<"trending" | "funded" | "newest" | "progress">("trending")
 
-  const categoryInfo = CATEGORIES[categorySlug as keyof typeof CATEGORIES] || {
-    label: categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1),
-    icon: "🎯",
-    description: "Campaigns in this category",
-    keywords: [categorySlug],
-  }
+  const categoryInfo = useMemo(() => {
+    return CATEGORIES[categorySlug as keyof typeof CATEGORIES] || {
+      label: categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1),
+      icon: "🎯",
+      description: "Campaigns in this category",
+      keywords: [categorySlug],
+    }
+  }, [categorySlug])
+
+  const fetchCampaignsByCategory = useCallback(async () => {
+      setLoading(true)
+      try {
+        const { campaigns, source } = await getPrimaryCampaigns()
+        if (source === "mock") {
+          console.warn("Using mock campaigns fallback because Supabase returned empty data")
+        }
+
+        // Filter by selected category using keywords
+        const keywords = categoryInfo.keywords || [categorySlug]
+        const filtered = campaigns.filter((c: Campaign) => {
+          const campaignText = (c.title + " " + c.category).toLowerCase()
+          return keywords.some(keyword => campaignText.includes(keyword.toLowerCase()))
+        })
+
+        // Sort
+        if (sortBy === "trending") {
+          filtered.sort((a, b) => (b.trend_score || 0) - (a.trend_score || 0))
+        } else if (sortBy === "funded") {
+          filtered.sort((a, b) => toSafeNumber(b.amount) - toSafeNumber(a.amount))
+        } else if (sortBy === "newest") {
+          filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        } else if (sortBy === "progress") {
+          filtered.sort((a, b) => {
+            const progressA = calculateProgress(a.amount, a.goal)
+            const progressB = calculateProgress(b.amount, b.goal)
+            return progressB - progressA
+          })
+        }
+
+        setCampaigns(filtered)
+      } catch (err) {
+        console.error("Error fetching campaigns:", err)
+      } finally {
+        setLoading(false)
+      }
+  }, [categorySlug, sortBy, categoryInfo])
 
   useEffect(() => {
     fetchCampaignsByCategory()
-  }, [categorySlug, sortBy])
-
-  async function fetchCampaignsByCategory() {
-    setLoading(true)
-
-    try {
-      const { campaigns, source } = await getPrimaryCampaigns()
-      if (source === "mock") {
-        console.warn("Using mock campaigns fallback because Supabase returned empty data")
-      }
-
-      // Filter by selected category using keywords
-      const keywords = categoryInfo.keywords || [categorySlug]
-      let filtered = campaigns.filter((c: Campaign) => {
-        const campaignText = (c.title + " " + c.category).toLowerCase()
-        return keywords.some(keyword => campaignText.includes(keyword.toLowerCase()))
-      })
-
-      // Sort
-      if (sortBy === "trending") {
-        filtered.sort((a, b) => (b.trend_score || 0) - (a.trend_score || 0))
-      } else if (sortBy === "funded") {
-        filtered.sort((a, b) => toSafeNumber(b.amount) - toSafeNumber(a.amount))
-      } else if (sortBy === "newest") {
-        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      } else if (sortBy === "progress") {
-        filtered.sort((a, b) => {
-          const progressA = calculateProgress(a.amount, a.goal)
-          const progressB = calculateProgress(b.amount, b.goal)
-          return progressB - progressA
-        })
-      }
-
-      setCampaigns(filtered)
-      setLoading(false)
-    } catch (err) {
-      console.error("Error fetching campaigns:", err)
-      setLoading(false)
-    }
-  }
+  }, [fetchCampaignsByCategory])
 
   const toggleComparison = (campaign: Campaign) => {
     const isInList = comparisonList.some(c => c.id === campaign.id)
@@ -107,7 +110,7 @@ export default function CategoryPage() {
           ].map((filter) => (
             <button
               key={filter.value}
-              onClick={() => setSortBy(filter.value as any)}
+              onClick={() => setSortBy(filter.value as "trending" | "funded" | "newest" | "progress")}
               className={`px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-all duration-300 text-sm md:text-base ${
                 sortBy === filter.value
                   ? "bg-emerald-600 text-white shadow-lg"
@@ -123,9 +126,7 @@ export default function CategoryPage() {
       {/* CAMPAIGNS GRID */}
       <section className="max-w-7xl mx-auto px-4 md:px-6 py-8">
         {loading ? (
-          <div className="text-center py-20">
-            <div className="text-2xl font-bold text-emerald-600">Loading campaigns...</div>
-          </div>
+          <CampaignSkeleton />
         ) : campaigns.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-2xl font-bold text-gray-600">No campaigns in this category</div>
@@ -147,17 +148,12 @@ export default function CategoryPage() {
                   >
                     {/* IMAGE */}
                     <div className="relative overflow-hidden h-40 md:h-56 bg-gradient-to-br from-emerald-100 to-teal-100">
-                      <img
-                        src={
-                          campaign.image ||
-                          "https://images.unsplash.com/photo-1593113630400-ea4288922497"
-                        }
+                      <CampaignImage
+                        src={campaign.image}
                         alt={campaign.title}
-                        onError={(e) => {
-                          e.currentTarget.src = `https://via.placeholder.com/400x300/009767/ffffff?text=${encodeURIComponent(
-                            campaign.category || "Campaign"
-                          )}`
-                        }}
+                        width={600}
+                        height={400}
+                        sizes="(max-width: 768px) 100vw, 33vw"
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
 

@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import NewsletterForm from "../components/NewsletterForm"
+import CampaignSkeleton from "../components/CampaignSkeleton"
+import CampaignImage from "@/components/CampaignImage"
 import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
 import { getPrimaryCampaigns } from "@/lib/campaignData"
+import { supabase } from "@/lib/supabase"
 
 type Campaign = {
   id: string
@@ -24,8 +26,9 @@ type Campaign = {
 export default function Home() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
+  const [now, setNow] = useState(() => Date.now())
   const [selectedCategory, setSelectedCategory] = useState("All")
-  const [sortOption, setSortOption] = useState("Trending")
+  const [sortOption] = useState("Trending")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [comparisonList, setComparisonList] = useState<Campaign[]>([])
@@ -57,15 +60,25 @@ export default function Home() {
           const progress = calculateProgress(campaign.amount, campaign.goal)
 
           const createdAt = new Date(campaign.created_at).getTime()
-          const daysOld = (now - createdAt) / (1000 * 60 * 60 * 24)
+          const daysOld = Math.max(1, (now - createdAt) / (1000 * 60 * 60 * 24))
 
-          const recencyScore = Math.max(0, 100 - daysOld * 5)
-          const amountScore = toSafeNumber(campaign.amount) / 1000
+          // 40% funding speed (progress per day)
+          const fundingSpeed = Math.min(100, (progress / daysOld) * 10)
+
+          // 30% growth rate (amount raised per day)
+          const growthRate = Math.min(100, (toSafeNumber(campaign.amount) / daysOld) / 10000)
+
+          // 20% recency (newer campaigns score higher)
+          const recencyScore = Math.max(0, 100 - daysOld * 2)
+
+          // 10% activity (total engagement based on amount)
+          const activityScore = Math.min(100, toSafeNumber(campaign.amount) / 1000000)
 
           const trend_score =
-            progress * 0.6 +
-            recencyScore * 0.3 +
-            amountScore * 0.1
+            fundingSpeed * 0.4 +
+            growthRate * 0.3 +
+            recencyScore * 0.2 +
+            activityScore * 0.1
 
           return {
             ...campaign,
@@ -88,32 +101,91 @@ export default function Home() {
     /* Realtime updates */
     /* -------------------- */
 
-    const channel = supabase
-      .channel("campaign-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "campaigns",
-        },
-        () => fetchCampaigns()
-      )
-      .subscribe()
+    try {
+      const channel = supabase
+        .channel("campaign-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "campaigns",
+          },
+          () => fetchCampaigns()
+        )
+        .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    } catch (err) {
+      console.error("Realtime subscription error:", err)
+      return undefined
     }
+  }, [])
+
+  const resetPagination = useCallback(() => {
+    setCurrentPage(1)
+  }, [])
+
+  const syncTime = useCallback(() => {
+    setNow(Date.now())
   }, [])
 
   /* Reset pagination when filters change */
 
   useEffect(() => {
-    setCurrentPage(1)
-  }, [selectedCategory, sortOption, searchQuery])
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    resetPagination()
+  }, [selectedCategory, sortOption, searchQuery, resetPagination])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    syncTime()
+  }, [syncTime])
+
+  const urgentCampaigns = useMemo(() => {
+    return [...campaigns]
+      .filter((campaign) => {
+        const daysActive = (now - new Date(campaign.created_at).getTime()) / (1000 * 60 * 60 * 24)
+        const progress = calculateProgress(campaign.amount, campaign.goal)
+        return daysActive >= 20 && progress >= 40 && progress < 100
+      })
+      .sort((a, b) => {
+        const progressA = calculateProgress(a.amount, a.goal)
+        const progressB = calculateProgress(b.amount, b.goal)
+        return progressB - progressA
+      })
+      .slice(0, 3)
+  }, [campaigns, now])
+
+  const recentlyFundedCampaigns = useMemo(() => {
+    return [...campaigns]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3)
+  }, [campaigns])
+
+  const toggleComparison = (campaign: Campaign) => {
+    const isInList = comparisonList.some(c => c.id === campaign.id)
+    if (isInList) {
+      setComparisonList(comparisonList.filter(c => c.id !== campaign.id))
+    } else if (comparisonList.length < 3) {
+      setComparisonList([...comparisonList, campaign])
+    }
+  }
 
   if (loading) {
-    return <p className="p-10 text-center text-lg">Loading campaigns...</p>
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-gray-50 via-emerald-50 to-gray-50 p-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <div className="h-10 bg-gray-300 rounded w-64 mb-4 animate-pulse" />
+            <div className="h-6 bg-gray-200 rounded w-48 animate-pulse" />
+          </div>
+          <CampaignSkeleton />
+        </div>
+      </main>
+    )
   }
 
   /* Categories */
@@ -169,16 +241,6 @@ export default function Home() {
     currentPage * campaignsPerPage
   )
 
-  /* Toggle comparison */
-  const toggleComparison = (campaign: Campaign) => {
-    const isInList = comparisonList.some(c => c.id === campaign.id)
-    if (isInList) {
-      setComparisonList(comparisonList.filter(c => c.id !== campaign.id))
-    } else if (comparisonList.length < 3) {
-      setComparisonList([...comparisonList, campaign])
-    }
-  }
-
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-emerald-50 to-gray-50">
 
@@ -221,6 +283,13 @@ export default function Home() {
             >
               🔥 See Trending
             </a>
+
+            <a
+              href="/compare"
+              className="border-2 border-white text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-white hover:text-emerald-600 transition-all duration-300"
+            >
+              ⚖️ Compare Tool
+            </a>
           </div>
 
           {/* STATS */}
@@ -242,6 +311,119 @@ export default function Home() {
 
       </section>
 
+      {/* BEST CAMPAIGNS TODAY */}
+      <section className="max-w-7xl mx-auto px-4 md:px-6 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            🔥 Best Campaigns Today
+          </h2>
+          <p className="text-lg text-gray-600">
+            Fastest-growing campaigns making real impact right now
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+          {[...campaigns]
+            .sort((a, b) => (b.trend_score ?? 0) - (a.trend_score ?? 0))
+            .slice(0, 3)
+            .map((campaign, idx) => {
+              const progress = calculateProgress(campaign.amount, campaign.goal)
+              const badges = ['🥇 Fastest Growing', '🥈 Top Rated', '🥉 Most Trusted']
+              
+              return (
+                <Link
+                  key={campaign.id}
+                  href={`/campaign/${campaign.id}`}
+                  className="group bg-white rounded-xl shadow-lg border-2 border-emerald-200 overflow-hidden hover:shadow-2xl hover:border-emerald-400 transition-all duration-300 transform hover:-translate-y-2"
+                >
+                  {/* Badge */}
+                  <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-center py-2 font-bold text-sm">
+                    {badges[idx]}
+                  </div>
+
+                  {/* Image */}
+                  <div className="relative overflow-hidden h-48 bg-gradient-to-br from-emerald-100 to-teal-100">
+                    <CampaignImage
+                      src={campaign.image}
+                      alt={campaign.title}
+                      width={600}
+                      height={400}
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  </div>
+
+                  <div className="p-6">
+                    <h3 className="font-bold text-xl text-gray-900 mb-3 line-clamp-2 group-hover:text-emerald-600 transition-colors">
+                      {campaign.title}
+                    </h3>
+
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">
+                        {campaign.category}
+                      </span>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">
+                        {campaign.platform}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-semibold text-gray-700">Progress</span>
+                          <span className="text-sm font-bold text-emerald-600">{Math.min(progress, 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div
+                            className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2.5 rounded-full"
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                        <span className="text-xs text-gray-600">Raised</span>
+                        <span className="text-lg font-bold text-gray-900">{formatInrCurrency(campaign.amount)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+        </div>
+      </section>
+
+      <section className="max-w-7xl mx-auto px-4 md:px-6 py-8">
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+          <div className="bg-white rounded-xl shadow-lg border border-red-100 p-6">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">⏳ Urgent Campaigns Ending Soon</h3>
+            <div className="space-y-3">
+              {urgentCampaigns.length === 0 && (
+                <p className="text-gray-600">No urgent campaigns right now.</p>
+              )}
+              {urgentCampaigns.map((campaign) => (
+                <Link key={campaign.id} href={`/campaign/${campaign.id}`} className="block rounded-lg border border-gray-100 p-3 hover:border-emerald-400 transition-colors">
+                  <p className="font-semibold text-gray-900 line-clamp-1">{campaign.title}</p>
+                  <p className="text-sm text-gray-700">{formatInrRange(campaign.amount, campaign.goal)}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg border border-emerald-100 p-6">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">🆕 Recently Funded Campaigns</h3>
+            <div className="space-y-3">
+              {recentlyFundedCampaigns.map((campaign) => (
+                <Link key={campaign.id} href={`/campaign/${campaign.id}`} className="block rounded-lg border border-gray-100 p-3 hover:border-emerald-400 transition-colors">
+                  <p className="font-semibold text-gray-900 line-clamp-1">{campaign.title}</p>
+                  <p className="text-sm text-gray-700">Started {new Date(campaign.created_at).toLocaleDateString()}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* SEARCH & FILTERS SECTION */}
 
       <section className="max-w-7xl mx-auto px-4 md:px-6 py-12">
@@ -254,10 +436,10 @@ export default function Home() {
               placeholder="🔍 Search by campaign name, category..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full border-2 border-emerald-300 px-6 py-4 rounded-xl shadow-md focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300 text-base md:text-lg font-medium"
+              className="w-full border-2 border-emerald-300 px-6 py-4 rounded-xl shadow-md focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300 text-base md:text-lg font-medium text-gray-900 placeholder-gray-500"
             />
           </div>
-          <p className="text-center text-gray-600 font-semibold">
+          <p className="text-center text-gray-700 font-semibold">
             Found <span className="text-emerald-600 font-bold text-lg">{filteredCampaigns.length}</span> campaigns
           </p>
         </div>
@@ -326,15 +508,12 @@ export default function Home() {
 
                 {/* IMAGE CONTAINER */}
                 <div className="relative overflow-hidden h-40 md:h-56 bg-gradient-to-br from-emerald-100 to-teal-100">
-                  <img
-                    src={
-                      campaign.image ||
-                      "https://images.unsplash.com/photo-1593113630400-ea4288922497"
-                    }
+                  <CampaignImage
+                    src={campaign.image}
                     alt={campaign.title}
-                    onError={(e) => {
-                      e.currentTarget.src = `https://via.placeholder.com/400x300/009767/ffffff?text=${encodeURIComponent(campaign.category || 'Campaign')}`
-                    }}
+                    width={600}
+                    height={400}
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
                   
@@ -369,10 +548,10 @@ export default function Home() {
                   {/* TRUST & IMPACT BADGES */}
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
-                      ✅ Trust: {campaign.trust_score || Math.floor(50 + Math.random() * 45)}
+                      ✅ Trust: {campaign.trust_score || 75}
                     </span>
                     <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
-                      ⭐ Impact: {Math.floor(55 + Math.random() * 40)}
+                      ⭐ Impact: {Math.min(99, 55 + Math.floor(calculateProgress(campaign.amount, campaign.goal) / 2))}
                     </span>
                   </div>
 
@@ -493,7 +672,7 @@ export default function Home() {
           <button
             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition-colors font-semibold text-gray-700"
           >
             ← Previous
           </button>
@@ -502,10 +681,10 @@ export default function Home() {
             <button
               key={page}
               onClick={() => setCurrentPage(page)}
-              className={`w-10 h-10 rounded-lg font-semibold transition-all duration-300 ${
+              className={`w-10 h-10 rounded-lg font-bold transition-all duration-300 ${
                 currentPage === page
                   ? 'bg-emerald-600 text-white shadow-md'
-                  : 'border border-gray-300 hover:bg-gray-50'
+                  : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
             >
               {page}
@@ -515,7 +694,7 @@ export default function Home() {
           <button
             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition-colors font-semibold text-gray-700"
           >
             Next →
           </button>

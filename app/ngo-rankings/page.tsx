@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
+import Link from "next/link"
 import { calculateProgress, formatInrCurrency, toSafeNumber } from "@/lib/currency"
 import { getMockPeopleHelpedIncrement, getMockTrustScore } from "@/lib/mockAnalyticsData"
 import { getPrimaryCampaigns } from "@/lib/campaignData"
@@ -21,11 +22,8 @@ export default function NGORankingsPage() {
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState<"raised" | "trust" | "success">("raised")
 
-  useEffect(() => {
-    fetchNGORankings()
-  }, [])
-
-  async function fetchNGORankings() {
+  const fetchNGORankings = useCallback(async () => {
+    setLoading(true)
     try {
       const { campaigns: allCampaigns, source } = await getPrimaryCampaigns()
       if (source === "mock") {
@@ -67,7 +65,7 @@ export default function NGORankingsPage() {
         ngo.people_helped += getMockPeopleHelpedIncrement()
       })
 
-      // Convert to array and calculate averages
+      // Convert to array and calculate averages (don't sort here yet)
       const ngoArray: NGORanking[] = Array.from(ngoMap.values()).map((ngo, idx) => ({
         rank: idx + 1,
         name: ngo.name,
@@ -83,27 +81,32 @@ export default function NGORankingsPage() {
         people_helped: ngo.people_helped,
       }))
 
-      // Sort based on selection
-      if (sortBy === "trust") {
-        ngoArray.sort((a, b) => b.trust_score - a.trust_score)
-      } else if (sortBy === "success") {
-        ngoArray.sort((a, b) => b.avg_success_rate - a.avg_success_rate)
-      } else {
-        ngoArray.sort((a, b) => b.total_raised - a.total_raised)
-      }
-
-      // Re-rank after sorting
-      ngoArray.forEach((ngo, idx) => {
-        ngo.rank = idx + 1
-      })
-
       setNgos(ngoArray)
-      setLoading(false)
     } catch (err) {
       console.error("Error fetching NGO rankings:", err)
+    } finally {
       setLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    fetchNGORankings()
+  }, [fetchNGORankings])
+
+  // Sort the ngos based on sortBy
+  const sortedNgos = [...ngos]
+  if (sortBy === "trust") {
+    sortedNgos.sort((a, b) => b.trust_score - a.trust_score)
+  } else if (sortBy === "success") {
+    sortedNgos.sort((a, b) => b.avg_success_rate - a.avg_success_rate)
+  } else {
+    sortedNgos.sort((a, b) => b.total_raised - a.total_raised)
   }
+
+  // Re-rank after sorting
+  sortedNgos.forEach((ngo, idx) => {
+    ngo.rank = idx + 1
+  })
 
   const handleSort = (newSortBy: typeof sortBy) => {
     setSortBy(newSortBy)
@@ -196,7 +199,9 @@ export default function NGORankingsPage() {
                     {/* INFO */}
                     <div className="flex-1">
                       <h2 className="text-lg md:text-2xl font-bold text-gray-900 mb-2">
-                        {ngo.name}
+                        <Link href={`/ngo/${encodeURIComponent(ngo.name)}`} className="hover:text-emerald-700 transition-colors">
+                          {ngo.name}
+                        </Link>
                       </h2>
                       <div className="flex flex-wrap gap-2">
                         {ngo.platforms.map((platform) => (

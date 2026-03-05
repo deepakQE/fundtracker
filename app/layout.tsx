@@ -112,8 +112,12 @@ export default function RootLayout({
                 🏆 Top NGOs
               </Link>
 
+              <Link href="/compare" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
+                ⚖️ Compare Tool
+              </Link>
+
               <Link href="/platform-comparison" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                ⚖️ Compare
+                🔄 Platforms
               </Link>
 
               <Link href="/about" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
@@ -136,7 +140,8 @@ export default function RootLayout({
                 <ul className="absolute right-0 mt-2 z-[60] w-52 p-2 shadow-lg bg-white rounded-lg border border-gray-100">
                   <li><Link href="/analytics" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">📊 Analytics</Link></li>
                   <li><Link href="/ngo-rankings" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">🏆 Top NGOs</Link></li>
-                  <li><Link href="/platform-comparison" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">⚖️ Compare</Link></li>
+                  <li><Link href="/compare" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">⚖️ Compare Tool</Link></li>
+                  <li><Link href="/platform-comparison" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">🔄 Platforms</Link></li>
                   <li><Link href="/about" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">About</Link></li>
                 </ul>
               </details>

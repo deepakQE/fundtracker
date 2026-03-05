@@ -1,8 +1,11 @@
-import { supabase } from "@/lib/supabase"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { calculateProgress, formatInrCurrency } from "@/lib/currency"
 import { getMockCampaignById } from "@/lib/mockCampaignData"
+import { getSupabaseServerClient } from "@/lib/supabaseServer"
+import CampaignImage from "@/components/CampaignImage"
+import { appendReferralCode } from "@/lib/referral"
+import type { Campaign } from "@/types/campaign"
 
 /* ================= SEO ================= */
 
@@ -13,11 +16,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
 
-  const { data } = await supabase
-    .from("campaigns")
-    .select("title, category, amount, goal, image")
-    .eq("id", id)
-    .single()
+  let data: Campaign | null = null
+  try {
+    const supabaseServer = getSupabaseServerClient()
+    const { data: fetchedData } = await supabaseServer
+      .from("campaigns")
+      .select("id, title, category, amount, goal, image, platform, created_at")
+      .eq("id", id)
+      .single()
+    data = fetchedData as Campaign | null
+  } catch {}
 
   const campaign = data || getMockCampaignById(id)
 
@@ -45,11 +53,16 @@ export default async function CampaignDetail({
 }) {
   const { id } = await params
 
-  const { data: campaign, error } = await supabase
-    .from("campaigns")
-    .select("*")
-    .eq("id", id)
-    .single()
+  let campaign: Campaign | null = null
+  try {
+    const supabaseServer = getSupabaseServerClient()
+    const { data } = await supabaseServer
+      .from("campaigns")
+      .select("*")
+      .eq("id", id)
+      .single()
+    campaign = data
+  } catch {}
 
   const finalCampaign = campaign || getMockCampaignById(id)
 
@@ -59,15 +72,38 @@ export default async function CampaignDetail({
 
   /* ===== RELATED ===== */
 
-  const { data: related } = await supabase
-    .from("campaigns")
-    .select("*")
-    .eq("category", finalCampaign.category)
-    .neq("id", finalCampaign.id)
-    .limit(3)
+  let related: Campaign[] = []
+  try {
+    const supabaseServer = getSupabaseServerClient()
+    const { data } = await supabaseServer
+      .from("campaigns")
+      .select("*")
+      .eq("category", finalCampaign.category)
+      .neq("id", finalCampaign.id)
+      .limit(3)
+    related = data || []
+  } catch {}
 
   const progress =
     calculateProgress(finalCampaign.amount, finalCampaign.goal)
+  const supportUrl = appendReferralCode(finalCampaign.url)
+
+  const campaignSchema = {
+    "@context": "https://schema.org",
+    "@type": "DonateAction",
+    name: finalCampaign.title,
+    description: finalCampaign.description || "Support this fundraising campaign",
+    object: {
+      "@type": "Thing",
+      name: finalCampaign.title,
+      image: finalCampaign.image,
+      url: `https://fundtracker.me/campaign/${finalCampaign.id}`,
+    },
+    recipient: {
+      "@type": "Organization",
+      name: finalCampaign.ngo_name || "Unknown NGO",
+    },
+  }
 
   const shareText = encodeURIComponent(`Support this campaign: ${finalCampaign.title}`)
   const shareUrl = encodeURIComponent(`https://fundtracker.me/campaign/${finalCampaign.id}`)
@@ -77,16 +113,22 @@ export default async function CampaignDetail({
 
       {/* HERO IMAGE */}
       <div className="w-full h-80 md:h-[450px] overflow-hidden relative bg-gradient-to-br from-emerald-100 to-teal-100">
-        <img
-          src={
-            finalCampaign.image ||
-            "https://images.pexels.com/photos/6646918/pexels-photo-6646918.jpeg"
-          }
+        <CampaignImage
+          src={finalCampaign.image}
           alt={finalCampaign.title}
+          width={1200}
+          height={700}
+          priority
+          sizes="100vw"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
       </div>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(campaignSchema) }}
+      />
 
       {/* MAIN CONTENT */}
       <div className="max-w-7xl mx-auto -mt-32 relative z-10 px-6 pb-20">
@@ -234,19 +276,19 @@ export default async function CampaignDetail({
             </div>
 
               {/* ACTIONS */}
-              <button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-lg font-bold text-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 mb-3 shadow-lg">
-                Support Campaign
-              </button>
-
-              {finalCampaign.url && (
+              {supportUrl ? (
                 <a
-                  href={finalCampaign.url}
+                  href={supportUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full block text-center bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition-all duration-300 mb-3 shadow-lg"
+                  className="w-full block text-center bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-lg font-bold text-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 mb-3 shadow-lg"
                 >
-                  🌐 Visit Campaign Website →
+                  💚 Support Campaign →
                 </a>
+              ) : (
+                <button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-lg font-bold text-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 mb-3 shadow-lg">
+                  💚 Support Campaign
+                </button>
               )}
 
               <a
@@ -284,12 +326,12 @@ export default async function CampaignDetail({
                     className="group bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden hover:shadow-xl hover:border-emerald-500 transition-all duration-300 transform hover:-translate-y-1"
                   >
                     <div className="relative overflow-hidden h-56 bg-gradient-to-br from-emerald-50 to-teal-50">
-                      <img
-                        src={
-                          item.image ||
-                          "https://images.pexels.com/photos/6646918/pexels-photo-6646918.jpeg"
-                        }
+                      <CampaignImage
+                        src={item.image}
                         alt={item.title}
+                        width={600}
+                        height={400}
+                        sizes="(max-width: 1024px) 100vw, 33vw"
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
                     </div>

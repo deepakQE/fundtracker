@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { useEffect, useState, useCallback } from "react"
+import CampaignSkeleton from "../../components/CampaignSkeleton"
 import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
 import { getPrimaryCampaigns } from "@/lib/campaignData"
+import CampaignImage from "@/components/CampaignImage"
 
 type Campaign = {
   id: string
@@ -25,11 +26,7 @@ export default function TrendingPage() {
   const [comparisonList, setComparisonList] = useState<Campaign[]>([])
   const [timeFilter, setTimeFilter] = useState("7d") // 7d, 30d, all
 
-  useEffect(() => {
-    fetchCampaigns()
-  }, [timeFilter])
-
-  async function fetchCampaigns() {
+  const fetchCampaigns = useCallback(async () => {
     setLoading(true)
 
     try {
@@ -43,23 +40,15 @@ export default function TrendingPage() {
         const progress = calculateProgress(campaign.amount, campaign.goal)
 
         const createdAt = new Date(campaign.created_at).getTime()
-        const daysOld = (now - createdAt) / (1000 * 60 * 60 * 24)
+        const daysOld = Math.max(1, (now - createdAt) / (1000 * 60 * 60 * 24))
 
-        // Improved Trending Algorithm
-        // 40% donation speed (amount raised vs goal)
-        const donationSpeedScore = Math.min(100, progress * 40 / 100)
-        
-        // 30% campaign growth (amount per day)
-        const growthScore = Math.min(100, (toSafeNumber(campaign.amount) / Math.max(1, daysOld)) / 10000)
-        
-        // 20% recency (newer campaigns score higher)
-        const recencyScore = Math.max(0, 100 - daysOld * 2.5)
-        
-        // 10% donor activity (based on amount)
-        const donorActivityScore = Math.min(100, (toSafeNumber(campaign.amount) / 1000000) * 10)
+        const fundingSpeedScore = Math.min(100, (progress / daysOld) * 10)
+        const growthScore = Math.min(100, (toSafeNumber(campaign.amount) / daysOld) / 10000)
+        const recencyScore = Math.max(0, 100 - daysOld * 2)
+        const donorActivityScore = Math.min(100, toSafeNumber(campaign.amount) / 1000000)
 
         const trend_score =
-          donationSpeedScore * 0.4 +
+          fundingSpeedScore * 0.4 +
           growthScore * 0.3 +
           recencyScore * 0.2 +
           donorActivityScore * 0.1
@@ -82,10 +71,14 @@ export default function TrendingPage() {
       setCampaigns(filtered.sort((a, b) => (b.trend_score ?? 0) - (a.trend_score ?? 0)))
     } catch (err) {
       console.error("Fetch Error:", err)
+    } finally {
+      setLoading(false)
     }
+  }, [timeFilter])
 
-    setLoading(false)
-  }
+  useEffect(() => {
+    fetchCampaigns()
+  }, [fetchCampaigns, timeFilter])
 
   const toggleComparison = (campaign: Campaign) => {
     const isInList = comparisonList.some(c => c.id === campaign.id)
@@ -97,7 +90,17 @@ export default function TrendingPage() {
   }
 
   if (loading) {
-    return <p className="p-10 text-center text-lg">Loading trending campaigns...</p>
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-gray-50 via-emerald-50 to-gray-50 p-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <div className="h-12 bg-gray-300 rounded w-80 mb-4 animate-pulse" />
+            <div className="h-6 bg-gray-200 rounded w-64 animate-pulse" />
+          </div>
+          <CampaignSkeleton />
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -155,12 +158,12 @@ export default function TrendingPage() {
               >
                 {/* IMAGE */}
                 <div className="relative overflow-hidden h-40 md:h-56 bg-gradient-to-br from-emerald-100 to-teal-100">
-                  <img
-                    src={campaign.image || "https://images.unsplash.com/photo-1593113630400-ea4288922497"}
+                  <CampaignImage
+                    src={campaign.image}
                     alt={campaign.title}
-                    onError={(e) => {
-                      e.currentTarget.src = `https://via.placeholder.com/400x300/009767/ffffff?text=${encodeURIComponent(campaign.category)}`
-                    }}
+                    width={600}
+                    height={400}
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
 
@@ -196,10 +199,10 @@ export default function TrendingPage() {
                   {/* TRUST & IMPACT BADGES */}
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
-                      ✅ Trust: {campaign.trust_score || Math.floor(50 + Math.random() * 45)}
+                      ✅ Trust: {campaign.trust_score || 75}
                     </span>
                     <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
-                      ⭐ Impact: {Math.floor(55 + Math.random() * 40)}
+                      ⭐ Impact: {Math.min(99, 55 + Math.floor(calculateProgress(campaign.amount, campaign.goal) / 2))}
                     </span>
                   </div>
 

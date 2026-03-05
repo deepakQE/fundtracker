@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Campaign } from "@/types/campaign"
 import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
 import { getMockWeeklyTrends } from "@/lib/mockAnalyticsData"
 import { getPrimaryCampaigns } from "@/lib/campaignData"
+import CampaignImage from "@/components/CampaignImage"
 
 type AnalyticsMetrics = {
   total_raised: number
@@ -35,11 +36,8 @@ export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<AnalyticsMetrics | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [])
-
-  async function fetchAnalytics() {
+  const fetchAnalytics = useCallback(async () => {
+    setLoading(true)
     try {
       const { campaigns: allCampaigns, source } = await getPrimaryCampaigns()
       if (source === "mock") {
@@ -116,12 +114,16 @@ export default function AnalyticsPage() {
           campaigns: item.campaigns_launched,
         })),
       })
-      setLoading(false)
-    } catch (err) {
-      console.error("Error fetching analytics:", err)
+    } catch {
+      console.error("Error fetching analytics:")
+    } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchAnalytics()
+  }, [fetchAnalytics])
 
   if (loading) {
     return (
@@ -139,8 +141,21 @@ export default function AnalyticsPage() {
     )
   }
 
+  const analyticsSchema = {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    name: "FundTracker Analytics",
+    description: "Fundraising platform analytics with campaign trends and category performance.",
+    url: "https://fundtracker.me/analytics",
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-emerald-50 to-gray-50">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(analyticsSchema) }}
+      />
+
       {/* HERO */}
       <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 text-white px-4 md:px-6 py-12 md:py-16">
         <div className="max-w-7xl mx-auto text-center">
@@ -278,13 +293,12 @@ export default function AnalyticsPage() {
             <div className="grid md:grid-cols-3 gap-6">
               {analytics.trending_campaign.image && (
                 <div className="md:col-span-1">
-                  <img
+                  <CampaignImage
                     src={analytics.trending_campaign.image}
                     alt={analytics.trending_campaign.title}
+                    width={400}
+                    height={192}
                     className="w-full h-48 object-cover rounded-lg"
-                    onError={(e) => {
-                      e.currentTarget.src = `https://via.placeholder.com/400x300/009767/ffffff?text=${encodeURIComponent(analytics.trending_campaign?.category || 'Campaign')}`
-                    }}
                   />
                 </div>
               )}

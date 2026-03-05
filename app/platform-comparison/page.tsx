@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { calculateProgress, formatInrCurrency, toSafeNumber } from "@/lib/currency"
 import { getPrimaryCampaigns } from "@/lib/campaignData"
 
@@ -20,11 +20,8 @@ export default function PlatformComparisonPage() {
   const [loading, setLoading] = useState(true)
   const [selectedMetric, setSelectedMetric] = useState<"fees" | "trust" | "success" | "raised">("trust")
 
-  useEffect(() => {
-    fetchPlatformData()
-  }, [])
-
-  async function fetchPlatformData() {
+  const fetchPlatformData = useCallback(async () => {
+    setLoading(true)
     try {
       const { campaigns: allCampaigns, source } = await getPrimaryCampaigns()
       if (source === "mock") {
@@ -90,12 +87,16 @@ export default function PlatformComparisonPage() {
       })
 
       setPlatforms(platformData.sort((a, b) => b.trust_score - a.trust_score))
-      setLoading(false)
     } catch (err) {
       console.error("Error:", err)
+    } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchPlatformData()
+  }, [fetchPlatformData])
 
   const sortedPlatforms = [...platforms].sort((a, b) => {
     if (selectedMetric === "fees") return a.fees - b.fees
@@ -158,7 +159,7 @@ export default function PlatformComparisonPage() {
           ].map((filter) => (
             <button
               key={filter.value}
-              onClick={() => setSelectedMetric(filter.value as any)}
+              onClick={() => setSelectedMetric(filter.value as "fees" | "trust" | "success" | "raised")}
               className={`px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-all duration-300 text-sm md:text-base ${
                 selectedMetric === filter.value
                   ? "bg-emerald-600 text-white shadow-lg"
