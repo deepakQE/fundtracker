@@ -6,6 +6,7 @@ import { getMockCampaignById } from "@/lib/mockCampaignData"
 import { getSupabaseServerClient } from "@/lib/supabaseServer"
 import CampaignImage from "@/components/CampaignImage"
 import { appendReferralCode } from "@/lib/referral"
+import { generatePlatformUrl, PLATFORM_CONFIG, getBestPlatform } from "@/lib/platformUrls"
 import type { Campaign } from "@/types/campaign"
 
 /* ================= SEO ================= */
@@ -91,7 +92,12 @@ export default async function CampaignDetail({
 
   const progress =
     calculateProgress(finalCampaign.amount, finalCampaign.goal)
-  const supportUrl = appendReferralCode(finalCampaign.url)
+  
+  // Generate support URL using platform-specific logic
+  const generatedSupportUrl = appendReferralCode(
+    generatePlatformUrl(finalCampaign.platform, finalCampaign.external_id || finalCampaign.id, finalCampaign.url)
+  )
+  const supportUrl = generatedSupportUrl || appendReferralCode(finalCampaign.url)
 
   const campaignSchema = {
     "@context": "https://schema.org",
@@ -275,14 +281,26 @@ export default async function CampaignDetail({
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-lg p-4 mb-4">
               <p className="text-xs text-gray-600 font-bold mb-2 uppercase">💡 Best Place to Donate</p>
               <div className="bg-white rounded-lg p-3 mb-3">
-                <p className="font-bold text-emerald-700 text-sm mb-1">GlobalGiving</p>
+                <p className="font-bold text-emerald-700 text-sm mb-1">
+                  {finalCampaign.platform || "GlobalGiving"}
+                </p>
                 <div className="space-y-1 text-xs text-gray-600">
-                  <p>✔ Lowest fees (4%)</p>
-                  <p>✔ Highest trust score (94/100)</p>
-                  <p>✔ 98% success rate</p>
+                  {PLATFORM_CONFIG[finalCampaign.platform || "GlobalGiving"] ? (
+                    <p>{PLATFORM_CONFIG[finalCampaign.platform || "GlobalGiving"].description}</p>
+                  ) : (
+                    <>
+                      <p>✔ Secure transfer</p>
+                      <p>✔ Verified platform</p>
+                      <p>✔ Direct support</p>
+                    </>
+                  )}
                 </div>
               </div>
-              <p className="text-xs text-gray-600 text-center">Why? Better rates & higher security for donors</p>
+              <p className="text-xs text-gray-600 text-center">
+                {finalCampaign.platform === "GlobalGiving" 
+                  ? "Why? Better rates & higher security for donors"
+                  : "This campaign is hosted on a trusted platform"}
+              </p>
             </div>
 
             {/* STATS */}
@@ -306,14 +324,17 @@ export default async function CampaignDetail({
                 <a
                   href={supportUrl}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel="noopener noreferrer sponsored"
                   className="w-full block text-center bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-lg font-bold text-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 mb-3 shadow-lg"
                 >
                   💚 Support Campaign →
                 </a>
               ) : (
-                <button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-lg font-bold text-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 mb-3 shadow-lg">
-                  💚 Support Campaign
+                <button 
+                  disabled
+                  className="w-full bg-gradient-to-r from-gray-400 to-gray-500 text-white py-4 rounded-lg font-bold text-lg cursor-not-allowed opacity-60 mb-3 shadow-lg"
+                >
+                  💚 Support Info Unavailable
                 </button>
               )}
 

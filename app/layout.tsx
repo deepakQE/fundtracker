@@ -5,6 +5,7 @@ import "./globals.css"
 import Link from "next/link"
 import NewsletterPopup from "@/components/NewsletterPopup"
 import GoogleAnalytics from "@/components/GoogleAnalytics"
+import ResponsiveNavbar from "@/components/navigation/ResponsiveNavbar"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -106,104 +107,12 @@ export default function RootLayout({
         )}
 
         {/* ================= NAVBAR ================= */}
-        <header className="bg-white border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
-            
-            <Link href="/" className="text-lg md:text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-              FundTracker
-            </Link>
-
-            {/* LARGE DESKTOP NAVIGATION */}
-            <nav className="hidden xl:flex gap-6 text-sm font-medium">
-              <Link href="/" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                Home
-              </Link>
-
-              <Link href="/trending" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200 font-semibold">
-                🔥 Trending
-              </Link>
-
-              <Link href="/most-funded" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                💰 Most Funded
-              </Link>
-
-              <Link href="/ending-soon" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                ⏰ Ending Soon
-              </Link>
-
-              <Link href="/recently-funded" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                ✅ Recently Funded
-              </Link>
-
-              <Link href="/ngo-rankings" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                🏆 Top NGOs
-              </Link>
-
-              <Link href="/compare" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                ⚖️ Compare
-              </Link>
-
-              <Link href="/blog" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                Blog
-              </Link>
-
-              <Link href="/guides" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                Guides
-              </Link>
-            </nav>
-
-            {/* TABLET NAVIGATION (MINIMIZED) */}
-            <div className="hidden md:flex xl:hidden items-center gap-3 text-sm font-medium">
-              <Link href="/" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                Home
-              </Link>
-              <Link href="/trending" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200 font-semibold">
-                🔥 Trending
-              </Link>
-              <details className="relative">
-                <summary className="list-none cursor-pointer px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:text-emerald-600 hover:border-emerald-200 transition-colors duration-200">
-                  More
-                </summary>
-                <ul className="absolute right-0 mt-2 z-[60] w-52 p-2 shadow-lg bg-white rounded-lg border border-gray-100">
-                  <li><Link href="/most-funded" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">💰 Most Funded</Link></li>
-                  <li><Link href="/ending-soon" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">⏰ Ending Soon</Link></li>
-                  <li><Link href="/recently-funded" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">✅ Recently Funded</Link></li>
-                  <li><Link href="/ngo-rankings" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">🏆 Top NGOs</Link></li>
-                  <li><Link href="/compare" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">⚖️ Compare</Link></li>
-                  <li><Link href="/analytics" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">📊 Analytics</Link></li>
-                  <li><Link href="/platform-comparison" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">🔄 Platforms</Link></li>
-                  <li><Link href="/about" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">About</Link></li>
-                  <li><Link href="/blog" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">Blog</Link></li>
-                  <li><Link href="/guides" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">Guides</Link></li>
-                </ul>
-              </details>
-            </div>
-
-            {/* MOBILE MENU */}
-            <div className="md:hidden">
-              <details className="dropdown dropdown-end">
-                <summary className="btn btn-ghost btn-xs md:btn-sm btn-circle text-xl cursor-pointer">☰</summary>
-                <ul className="dropdown-content z-[1] menu p-2 shadow bg-white rounded-box w-48 border border-gray-100">
-                  <li><Link href="/" className="text-gray-700 text-sm">Home</Link></li>
-                  <li><Link href="/trending" className="text-gray-700 text-sm">🔥 Trending</Link></li>
-                  <li><Link href="/most-funded" className="text-gray-700 text-sm">💰 Most Funded</Link></li>
-                  <li><Link href="/ending-soon" className="text-gray-700 text-sm">⏰ Ending Soon</Link></li>
-                  <li><Link href="/recently-funded" className="text-gray-700 text-sm">✅ Recently Funded</Link></li>
-                  <li><Link href="/ngo-rankings" className="text-gray-700 text-sm">🏆 Top NGOs</Link></li>
-                  <li><Link href="/compare" className="text-gray-700 text-sm">⚖️ Compare</Link></li>
-                  <li><Link href="/analytics" className="text-gray-700 text-sm">📊 Analytics</Link></li>
-                  <li><Link href="/about" className="text-gray-700 text-sm">About</Link></li>
-                  <li><Link href="/blog" className="text-gray-700 text-sm">Blog</Link></li>
-                  <li><Link href="/guides" className="text-gray-700 text-sm">Guides</Link></li>
-                </ul>
-              </details>
-            </div>
-          </div>
-        </header>
+        <ResponsiveNavbar />
 
         {/* ================= PAGE CONTENT ================= */}
-        {children}
-        <NewsletterPopup />
+        <div className="pb-20 sm:pb-0">
+          {children}
+          <NewsletterPopup />
 
         {/* ================= FOOTER ================= */}
         <footer className="bg-gray-900 text-gray-300 mt-32 border-t border-gray-800">
@@ -234,16 +143,16 @@ export default function RootLayout({
                 <ul className="space-y-2 text-sm">
                   <li><Link href="/blog" className="hover:text-white transition">Blog</Link></li>
                   <li><Link href="/guides" className="hover:text-white transition">Donation Guides</Link></li>
-                  <li><a href="#" className="hover:text-white transition">Help</a></li>
-                  <li><a href="#" className="hover:text-white transition">API</a></li>
+                  <li><Link href="/contact" className="hover:text-white transition">Help</Link></li>
+                  <li><a href="mailto:fundtrackersupport@gmail.com" className="hover:text-white transition">Support Email</a></li>
                 </ul>
               </div>
               <div>
                 <h4 className="text-white font-semibold mb-4">Legal</h4>
                 <ul className="space-y-2 text-sm">
-                  <li><a href="#" className="hover:text-white transition">Privacy</a></li>
-                  <li><a href="#" className="hover:text-white transition">Terms</a></li>
-                  <li><a href="#" className="hover:text-white transition">Contact</a></li>
+                  <li><Link href="/privacy" className="hover:text-white transition">Privacy</Link></li>
+                  <li><Link href="/terms" className="hover:text-white transition">Terms</Link></li>
+                  <li><Link href="/contact" className="hover:text-white transition">Contact</Link></li>
                 </ul>
               </div>
             </div>
@@ -252,7 +161,8 @@ export default function RootLayout({
               <p className="text-sm text-gray-400 text-center md:text-right">Made with <span className="text-emerald-500">♥</span> for good causes</p>
             </div>
           </div>
-        </footer>
+          </footer>
+        </div>
       </body>
     </html>
   )

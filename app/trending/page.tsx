@@ -6,6 +6,7 @@ import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } fr
 import { getPrimaryCampaigns } from "@/lib/campaignData"
 import CampaignImage from "@/components/CampaignImage"
 import { appendReferralCode } from "@/lib/referral"
+import { generatePlatformUrl } from "@/lib/platformUrls"
 import { trackEvent } from "@/lib/analytics"
 
 type Campaign = {
@@ -149,7 +150,8 @@ export default function TrendingPage() {
           {campaigns.map((campaign) => {
             const progress = calculateProgress(campaign.amount, campaign.goal)
             const isComparing = comparisonList.some(c => c.id === campaign.id)
-            const supportUrl = appendReferralCode(campaign.url)
+            const generatedUrl = generatePlatformUrl(campaign.platform, campaign.id, campaign.url)
+            const supportUrl = appendReferralCode(generatedUrl || campaign.url)
 
             return (
               <div
@@ -288,6 +290,8 @@ export default function TrendingPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
               {comparisonList.map((campaign) => {
                 const progress = calculateProgress(campaign.amount, campaign.goal)
+                const generatedUrl = generatePlatformUrl(campaign.platform, campaign.id, campaign.url)
+                const supportUrl = appendReferralCode(generatedUrl || campaign.url)
                 return (
                   <div key={campaign.id} className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 md:p-6 rounded-lg border border-emerald-200">
                     <div className="flex justify-between items-start mb-3 md:mb-4">
@@ -319,9 +323,9 @@ export default function TrendingPage() {
                         <span className="text-gray-600">Progress:</span>
                         <p className="font-bold text-lg text-emerald-600">{Math.min(progress, 100).toFixed(1)}%</p>
                       </div>
-                      {campaign.url && (
+                      {supportUrl && (
                         <a
-                          href={appendReferralCode(campaign.url)}
+                          href={supportUrl}
                           target="_blank"
                           rel="noopener noreferrer nofollow sponsored"
                           onClick={() => trackEvent("support_click", { location: "trending_compare", campaign_id: campaign.id })}

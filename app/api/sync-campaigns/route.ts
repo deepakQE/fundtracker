@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import type { Campaign } from "@/types/campaign"
-import { calculateProgress } from "@/lib/currency"
 import { getSupabaseServerClient } from "@/lib/supabaseServer"
 import { appendReferralCode } from "@/lib/referral"
+import { calculateProgress } from "@/lib/currency"
 
 type GlobalGivingProject = {
   id: string | number
@@ -42,31 +42,13 @@ type NGOUpsertRow = {
   trust_score: number
 }
 
-const SYNC_CATEGORIES = [
-  "health",
-  "education",
-  "environment",
-  "emergency",
-  "children",
-  "women",
-  "animals",
-  "water",
-  "climate",
-  "poverty",
-  "disaster",
-  "hunger",
-  "human-rights",
-  "economic-development",
-  "technology",
-] as const
-
 const GLOBAL_GIVING_HEADERS = { Accept: "application/json" }
-const PROJECTS_PER_PAGE = 100 // GlobalGiving max per request
-const MAX_PAGES_PER_CATEGORY = 5 // Fetch up to 500 projects per category
+const PROJECTS_PER_PAGE = 100
+const MAX_PAGES_PER_SYNC = 5
 
 function toNumber(value: unknown): number {
   const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : Number.NaN
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function computeTrendScore(campaign: Pick<Campaign, "amount" | "goal" | "created_at">): number {
@@ -75,49 +57,42 @@ function computeTrendScore(campaign: Pick<Campaign, "amount" | "goal" | "created
   const daysOld = Math.max(1, (now - createdAt) / (1000 * 60 * 60 * 24))
 
   const progress = Math.min(calculateProgress(campaign.amount, campaign.goal), 100)
-  
-  // 40% donation progress
   const donationProgress = Math.min(100, progress)
-  
-  // 30% growth rate (amount raised per day)
   const growthRate = Math.min(100, Number.isFinite(campaign.amount) ? (campaign.amount / daysOld) / 10000 : 0)
-  
-  // 20% recency (newer campaigns score higher)
   const recency = Math.max(0, 100 - daysOld * 2)
-  
-  // 10% engagement proxy
   const engagement = Math.min(100, Number.isFinite(campaign.amount) ? Math.sqrt(campaign.amount) / 20 : 0)
 
   return donationProgress * 0.4 + growthRate * 0.3 + recency * 0.2 + engagement * 0.1
 }
 
-function normalizeGlobalGivingCampaign(project: GlobalGivingProject, fallbackCategory?: string): Campaign {
+function normalizeGlobalGivingCampaign(project: GlobalGivingProject): Campaign {
   const id = String(project.id)
-  const amount = toNumber(project.funding)
+  const funding = toNumber(project.funding)
   const goal = toNumber(project.goal)
   const createdAt = project.activeDate && !Number.isNaN(new Date(project.activeDate).getTime())
     ? new Date(project.activeDate).toISOString()
     : new Date().toISOString()
 
+  const image_url =
+    project.image?.big ||
+    project.image?.medium ||
+    project.image?.imagelink ||
+    project.imageLink ||
+    null
+
   const normalized: Campaign = {
     id: `gg-${id}`,
     external_id: id,
     title: project.title || "Untitled Campaign",
-    platform: "GlobalGiving",
-    amount,
-    goal,
-    category: project.themeName || fallbackCategory || "General",
     description: project.summary || "",
-    image:
-      project.image?.big ||
-      project.image?.medium ||
-      project.image?.imagelink ||
-      project.imageLink ||
-      `https://www.globalgiving.org/pfil/${id}/pict_original.jpg` ||
-      `https://www.globalgiving.org/pfil/${id}/pict_large.jpg`,
-    created_at: createdAt,
+    goal,
+    amount: funding,
+    image: image_url || undefined,
     url: appendReferralCode(project.projectLink),
+    platform: "GlobalGiving",
     ngo_name: project.organization?.name || project.organizationName || "Unknown NGO",
+    category: project.themeName || "General",
+    created_at: createdAt,
     trend_score: 0,
   }
 
@@ -129,70 +104,20 @@ function buildNgoDescription(ngoName: string): string {
   return `${ngoName} runs impact campaigns listed on FundTracker.`
 }
 
-function getCandidateUrls(apiKey: string, category: string, page: number = 1): string[] {
-  const encodedCategory = encodeURIComponent(category)
-  const nextProjectNumber = (page - 1) * PROJECTS_PER_PAGE + 1
-  
-  return [
-    // All active projects by theme (best for scaling)
-    `https://api.globalgiving.org/api/public/projectservice/all/projects/active?api_key=${apiKey}&nextProjectNumber=${nextProjectNumber}&theme=${encodedCategory}`,
-    // Theme-based search
-    `https://api.globalgiving.org/api/public/projectservice/themes/${encodedCategory}/projects?api_key=${apiKey}&nextProjectNumber=${nextProjectNumber}`,
-    // Search-based approach
-    `https://api.globalgiving.org/api/public/projectservice/search/projects?api_key=${apiKey}&q=${encodedCategory}&nextProjectNumber=${nextProjectNumber}`,
-    // Featured fallback
-    `https://api.globalgiving.org/api/public/projectservice/featured/projects?api_key=${apiKey}&theme=${encodedCategory}&nextProjectNumber=${nextProjectNumber}`,
-  ]
-}
+async function fetchProjectsPage(apiKey: string, page: number): Promise<GlobalGivingProject[]> {
+  const url = `https://api.globalgiving.org/api/public/projectservice/all/projects/active?api_key=${apiKey}&pageNumber=${page}&projectsPerPage=${PROJECTS_PER_PAGE}`
+  const response = await fetch(url, {
+    headers: GLOBAL_GIVING_HEADERS,
+    cache: "no-store",
+  })
 
-async function fetchProjectsForCategory(apiKey: string, category: string): Promise<GlobalGivingProject[]> {
-  const allProjects: GlobalGivingProject[] = []
-  
-  // Fetch multiple pages for each category
-  for (let page = 1; page <= MAX_PAGES_PER_CATEGORY; page++) {
-    const candidates = getCandidateUrls(apiKey, category, page)
-    let pageProjects: GlobalGivingProject[] = []
-
-    for (const url of candidates) {
-      try {
-        const response = await fetch(url, {
-          headers: GLOBAL_GIVING_HEADERS,
-          cache: "no-store",
-        })
-
-        if (!response.ok) {
-          continue
-        }
-
-        const payload = await response.json()
-        const projects = payload?.projects?.project
-
-        if (Array.isArray(projects) && projects.length > 0) {
-          pageProjects = projects as GlobalGivingProject[]
-          break // Found projects, stop trying candidate URLs
-        }
-      } catch {
-        continue
-      }
-    }
-    
-    if (pageProjects.length === 0) {
-      // No more projects for this category
-      break
-    }
-    
-    allProjects.push(...pageProjects)
-    
-    // If we got fewer projects than requested, we've reached the end
-    if (pageProjects.length < PROJECTS_PER_PAGE) {
-      break
-    }
-    
-    // Add small delay to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500))
+  if (!response.ok) {
+    throw new Error(`GlobalGiving API page ${page} failed: ${response.status}`)
   }
 
-  return allProjects
+  const payload = await response.json()
+  const projects = payload?.projects?.project
+  return Array.isArray(projects) ? (projects as GlobalGivingProject[]) : []
 }
 
 async function runSync(): Promise<SyncResult> {
@@ -225,24 +150,32 @@ async function runSync(): Promise<SyncResult> {
     }
   }
 
-  const allProjects: Array<GlobalGivingProject & { __fallbackCategory?: string }> = []
+  const allProjects: GlobalGivingProject[] = []
 
-  for (const category of SYNC_CATEGORIES) {
-    const categoryProjects = await fetchProjectsForCategory(apiKey, category)
-    if (categoryProjects.length === 0) {
-      errors.push(`No projects returned for category: ${category}`)
-      continue
+  for (let page = 1; page <= MAX_PAGES_PER_SYNC; page++) {
+    try {
+      const pageProjects = await fetchProjectsPage(apiKey, page)
+      if (pageProjects.length === 0) {
+        break
+      }
+
+      allProjects.push(...pageProjects)
+
+      if (pageProjects.length < PROJECTS_PER_PAGE) {
+        break
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Unknown error fetching page ${page}`
+      errors.push(errorMessage)
+      break
     }
 
-    allProjects.push(
-      ...categoryProjects.map((project) => ({
-        ...project,
-        __fallbackCategory: category,
-      }))
-    )
+    // Rate limiting between page requests
+    await new Promise((r) => setTimeout(r, 500))
   }
 
   if (allProjects.length === 0) {
+    // Fallback keeps cron more resilient if active endpoint is temporarily empty.
     try {
       const fallbackUrl = `https://api.globalgiving.org/api/public/projectservice/featured/projects/summary?api_key=${apiKey}`
       const response = await fetch(fallbackUrl, {
@@ -252,16 +185,17 @@ async function runSync(): Promise<SyncResult> {
 
       if (response.ok) {
         const payload = await response.json()
-        const featuredProjects: GlobalGivingProject[] = payload?.projects?.project || []
-        allProjects.push(...featuredProjects.map((project) => ({ ...project, __fallbackCategory: "featured" })))
+        const fallbackProjects = payload?.projects?.project
+        if (Array.isArray(fallbackProjects)) {
+          allProjects.push(...(fallbackProjects as GlobalGivingProject[]))
+        }
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to connect to GlobalGiving API"
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch fallback featured projects"
       errors.push(errorMessage)
     }
-  }
 
-  if (allProjects.length === 0) {
+    if (allProjects.length === 0) {
     return {
       ok: false,
       source: "globalgiving",
@@ -270,30 +204,27 @@ async function runSync(): Promise<SyncResult> {
       updated: 0,
       errors: errors.length > 0 ? errors : ["No campaigns fetched from GlobalGiving"],
     }
+    }
   }
 
-  const normalizedCampaigns = allProjects.map((project) =>
-    normalizeGlobalGivingCampaign(project, project.__fallbackCategory)
-  )
+  const normalizedCampaigns = allProjects.map((project) => normalizeGlobalGivingCampaign(project))
   const uniqueCampaigns = normalizedCampaigns.filter((campaign, index, arr) => {
     return arr.findIndex((item) => item.external_id === campaign.external_id) === index
   })
 
-  const externalIds = uniqueCampaigns
-    .map((campaign) => campaign.external_id)
-    .filter((value): value is string => Boolean(value))
+  const campaignIds = uniqueCampaigns.map((campaign) => campaign.id)
 
   const { data: existingRows, error: existingError } = await supabaseServer
     .from("campaigns")
-    .select("external_id")
-    .in("external_id", externalIds)
+    .select("id")
+    .in("id", campaignIds)
 
   if (existingError) {
-    errors.push(`Failed to read existing campaign external ids: ${existingError.message}`)
+    errors.push(`Failed to read existing campaign ids: ${existingError.message}`)
   }
 
-  const existingIdSet = new Set((existingRows || []).map((row) => row.external_id))
-  const inserted = uniqueCampaigns.filter((campaign) => !existingIdSet.has(campaign.external_id)).length
+  const existingIdSet = new Set((existingRows || []).map((row) => row.id as string))
+  const inserted = uniqueCampaigns.filter((campaign) => !existingIdSet.has(campaign.id)).length
   const updated = uniqueCampaigns.length - inserted
 
   const ngoMap = new Map<string, NGOUpsertRow>()
@@ -336,11 +267,17 @@ async function runSync(): Promise<SyncResult> {
 
   const { error: upsertError } = await supabaseServer
     .from("campaigns")
-    .upsert(campaignsWithNgoIds, { onConflict: "external_id" })
+    .upsert(campaignsWithNgoIds, { onConflict: "id" })
 
   if (upsertError) {
     errors.push(`Upsert failed: ${upsertError.message}`)
   }
+
+  console.log({
+    fetched: uniqueCampaigns.length,
+    inserted,
+    updated,
+  })
 
   return {
     ok: errors.length === 0,
