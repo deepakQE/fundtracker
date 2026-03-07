@@ -15,6 +15,15 @@ type CampaignRow = {
   trend_score?: number
 }
 
+type NGORow = {
+  id: number
+  name: string
+  description: string | null
+  website: string | null
+  logo: string | null
+  trust_score: number | null
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -26,9 +35,13 @@ export async function generateMetadata({
   return {
     title: `${decodedName} NGO Profile`,
     description: `Track ${decodedName} campaigns, trust score, and impact metrics on FundTracker.`,
+    alternates: {
+      canonical: `/ngo/${encodeURIComponent(decodedName)}`,
+    },
     openGraph: {
       title: `${decodedName} NGO Profile`,
       description: `Active campaigns and impact metrics for ${decodedName}.`,
+      url: `https://fundtracker.me/ngo/${encodeURIComponent(decodedName)}`,
       type: "website",
     },
   }
@@ -43,6 +56,12 @@ export default async function NGOProfilePage({
   const decodedName = decodeURIComponent(ngoName)
 
   const supabaseServer = getSupabaseServerClient()
+  const { data: ngoData } = await supabaseServer
+    .from("ngos")
+    .select("id,name,description,website,logo,trust_score")
+    .eq("name", decodedName)
+    .maybeSingle()
+
   const { data } = await supabaseServer
     .from("campaigns")
     .select("id,title,amount,goal,category,created_at,ngo_name,trend_score")
@@ -50,16 +69,20 @@ export default async function NGOProfilePage({
     .order("created_at", { ascending: false })
 
   const campaigns = (data || []) as CampaignRow[]
+  const ngo = (ngoData || null) as NGORow | null
 
-  if (campaigns.length === 0) {
+  if (campaigns.length === 0 && !ngo) {
     return notFound()
   }
 
   const totalAmountRaised = campaigns.reduce((sum, campaign) => sum + toSafeNumber(campaign.amount), 0)
-  const trustScore = Math.min(
-    98,
-    55 + Math.floor(campaigns.reduce((sum, campaign) => sum + calculateProgress(campaign.amount, campaign.goal), 0) / campaigns.length / 2)
-  )
+  const fallbackTrustScore = campaigns.length === 0
+    ? 70
+    : Math.min(
+        98,
+        55 + Math.floor(campaigns.reduce((sum, campaign) => sum + calculateProgress(campaign.amount, campaign.goal), 0) / campaigns.length / 2)
+      )
+  const trustScore = ngo?.trust_score ? Math.round(ngo.trust_score) : fallbackTrustScore
 
   const totalPeopleHelped = Math.floor(totalAmountRaised / 2000)
   const activeCampaigns = campaigns.filter((campaign) => calculateProgress(campaign.amount, campaign.goal) < 100)
@@ -84,12 +107,18 @@ export default async function NGOProfilePage({
       <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 text-white px-6 py-14">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl md:text-5xl font-bold mb-3">{decodedName}</h1>
-          <p className="text-emerald-100 text-lg">NGO Profile, trust, impact and active campaigns</p>
+          <p className="text-emerald-100 text-lg">NGO profile, trust, impact, and active campaigns</p>
+          {ngo?.description && <p className="text-emerald-100 mt-3 max-w-4xl">{ngo.description}</p>}
+          {ngo?.website && (
+            <a href={ngo.website} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 underline text-emerald-100 hover:text-white">
+              Visit NGO Website
+            </a>
+          )}
         </div>
       </section>
 
       <section className="max-w-7xl mx-auto px-6 py-10">
-        <div className="grid md:grid-cols-4 gap-4 mb-10">
+        <div className="grid md:grid-cols-5 gap-4 mb-10">
           <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
             <p className="text-sm text-gray-600">Trust Score</p>
             <p className="text-3xl font-bold text-emerald-600">{trustScore}/100</p>
@@ -101,6 +130,10 @@ export default async function NGOProfilePage({
           <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
             <p className="text-sm text-gray-600">Total Amount Raised</p>
             <p className="text-3xl font-bold text-gray-900">{formatInrCurrency(totalAmountRaised)}</p>
+          </div>
+          <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+            <p className="text-sm text-gray-600">Total Donations Tracked</p>
+            <p className="text-3xl font-bold text-gray-900">{totalAmountRaised.toLocaleString()}</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
             <p className="text-sm text-gray-600">Impact Estimate</p>

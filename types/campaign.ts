@@ -21,6 +21,7 @@ export interface Campaign {
     custom_metric?: string
   }
   ngo_name?: string
+  ngo_id?: number | null
   verified_ngo?: boolean
   donor_reviews_count?: number
   platform_fees?: number

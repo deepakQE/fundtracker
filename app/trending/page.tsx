@@ -5,6 +5,8 @@ import CampaignSkeleton from "../../components/CampaignSkeleton"
 import { calculateProgress, formatInrCurrency, formatInrRange, toSafeNumber } from "@/lib/currency"
 import { getPrimaryCampaigns } from "@/lib/campaignData"
 import CampaignImage from "@/components/CampaignImage"
+import { appendReferralCode } from "@/lib/referral"
+import { trackEvent } from "@/lib/analytics"
 
 type Campaign = {
   id: string
@@ -147,6 +149,7 @@ export default function TrendingPage() {
           {campaigns.map((campaign) => {
             const progress = calculateProgress(campaign.amount, campaign.goal)
             const isComparing = comparisonList.some(c => c.id === campaign.id)
+            const supportUrl = appendReferralCode(campaign.url)
 
             return (
               <div
@@ -230,9 +233,35 @@ export default function TrendingPage() {
                   </div>
 
                   {/* FOOTER */}
-                  <div className="pt-2 md:pt-3 border-t border-gray-100">
+                  <div className="pt-2 md:pt-3 border-t border-gray-100 mb-3">
                     <p className="text-xs text-gray-600">Goal: {formatInrCurrency(campaign.goal)}</p>
                   </div>
+
+                  {supportUrl ? (
+                    <a
+                      href={supportUrl}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow sponsored"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        trackEvent("support_click", { location: "trending_card", campaign_id: campaign.id })
+                      }}
+                      className="w-full block text-center bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
+                    >
+                      Support Campaign
+                    </a>
+                  ) : (
+                    <a
+                      href={`/campaign/${campaign.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        trackEvent("campaign_click", { location: "trending_card_fallback", campaign_id: campaign.id })
+                      }}
+                      className="w-full block text-center bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
+                    >
+                      View Campaign
+                    </a>
+                  )}
                 </div>
               </div>
             )
@@ -292,9 +321,10 @@ export default function TrendingPage() {
                       </div>
                       {campaign.url && (
                         <a
-                          href={campaign.url}
+                          href={appendReferralCode(campaign.url)}
                           target="_blank"
-                          rel="noopener noreferrer"
+                          rel="noopener noreferrer nofollow sponsored"
+                          onClick={() => trackEvent("support_click", { location: "trending_compare", campaign_id: campaign.id })}
                           className="block w-full text-center mt-4 bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
                         >
                           Visit Website →

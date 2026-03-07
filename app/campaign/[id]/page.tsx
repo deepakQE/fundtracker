@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
+import Link from "next/link"
 import { calculateProgress, formatInrCurrency } from "@/lib/currency"
 import { getMockCampaignById } from "@/lib/mockCampaignData"
 import { getSupabaseServerClient } from "@/lib/supabaseServer"
@@ -36,9 +37,13 @@ export async function generateMetadata({
   return {
     title: campaign.title,
     description: `Support this ${campaign.category} campaign. ${formatInrCurrency(campaign.amount)} raised out of ${formatInrCurrency(campaign.goal)}.`,
+    alternates: {
+      canonical: `/campaign/${campaign.id}`,
+    },
     openGraph: {
       title: campaign.title,
       description: `${formatInrCurrency(campaign.amount)} raised out of ${formatInrCurrency(campaign.goal)}.`,
+      url: `https://fundtracker.me/campaign/${campaign.id}`,
       images: campaign.image ? [campaign.image] : [],
     },
   }
@@ -161,6 +166,18 @@ export default async function CampaignDetail({
                   day: 'numeric' 
                 })}</span>
               </p>
+
+              {finalCampaign.ngo_name && (
+                <p className="text-gray-600 mt-3">
+                  NGO: {" "}
+                  <Link
+                    href={`/ngo/${encodeURIComponent(finalCampaign.ngo_name)}`}
+                    className="font-semibold text-emerald-700 hover:text-emerald-800"
+                  >
+                    {finalCampaign.ngo_name}
+                  </Link>
+                </p>
+              )}
             </div>
 
             {/* CARD 2: DESCRIPTION */}
@@ -171,6 +188,15 @@ export default async function CampaignDetail({
               <p className="text-gray-700 leading-relaxed text-lg">
                 {finalCampaign.description || "This campaign is making a positive impact. Join the community supporting this important cause."}
               </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/blog" className="px-3 py-2 rounded-lg bg-emerald-100 text-emerald-800 font-medium">
+                  Read donation blog
+                </Link>
+                <Link href="/guides/how-to-donate-safely" className="px-3 py-2 rounded-lg bg-blue-100 text-blue-800 font-medium">
+                  Safe donation guide
+                </Link>
+              </div>
             </div>
 
             {/* CARD 3: CAMPAIGN UPDATES */}
@@ -374,6 +400,16 @@ export default async function CampaignDetail({
                           >
                             Visit Website →
                           </a>
+
+                          {item.ngo_name && (
+                            <Link
+                              href={`/ngo/${encodeURIComponent(item.ngo_name)}`}
+                              className="inline-block ml-2 text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded hover:bg-emerald-200 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              NGO Profile
+                            </Link>
+                          )}
                         </div>
                       )}
                     </div>

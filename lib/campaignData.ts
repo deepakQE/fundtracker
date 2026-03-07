@@ -38,7 +38,7 @@ const getCampaignsFromDb = unstable_cache(
   },
   ['campaigns-list'],
   {
-    revalidate: 3600, // Cache for 1 hour
+    revalidate: 21600, // Cache for 6 hours
     tags: ['campaigns']
   }
 )

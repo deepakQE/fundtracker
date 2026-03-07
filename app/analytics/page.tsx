@@ -10,8 +10,10 @@ import CampaignImage from "@/components/CampaignImage"
 type AnalyticsMetrics = {
   total_raised: number
   total_campaigns: number
+  total_ngos: number
   average_funding_rate: number
   top_category: string
+  trending_categories: string[]
   top_platform: string
   trending_campaign: Campaign | null
   platform_breakdown: Array<{
@@ -51,6 +53,8 @@ export default function AnalyticsPage() {
       const averageFundingRate = totalCampaigns > 0
         ? (allCampaigns.reduce((sum, c) => sum + calculateProgress(c.amount, c.goal), 0) / totalCampaigns)
         : 0
+
+      const totalNgos = new Set(allCampaigns.map((campaign) => campaign.ngo_name || "Unknown NGO")).size
 
       // Category breakdown
       const categoryMap = new Map()
@@ -102,8 +106,10 @@ export default function AnalyticsPage() {
       setAnalytics({
         total_raised: totalRaised,
         total_campaigns: totalCampaigns,
+        total_ngos: totalNgos,
         average_funding_rate: averageFundingRate,
         top_category: topCategory,
+        trending_categories: categoryBreakdown.slice(0, 3).map((item) => item.name),
         top_platform: topPlatform,
         trending_campaign: trendingCampaign,
         platform_breakdown: platformBreakdown,
@@ -180,7 +186,7 @@ export default function AnalyticsPage() {
             <p className="text-3xl font-bold text-emerald-600">
               {formatInrCurrency(analytics.total_raised)}
             </p>
-            <p className="text-xs text-gray-500 mt-2">Across all platforms</p>
+            <p className="text-xs text-gray-500 mt-2">Total donations tracked</p>
           </div>
 
           {/* Total Campaigns */}
@@ -195,16 +201,16 @@ export default function AnalyticsPage() {
             <p className="text-xs text-gray-500 mt-2">Making an impact</p>
           </div>
 
-          {/* Avg Funding Rate */}
+          {/* Total NGOs */}
           <div className="bg-white rounded-xl shadow-md border border-purple-100 p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-600 font-semibold">Avg Funding Rate</h3>
-              <span className="text-2xl">📈</span>
+              <h3 className="text-gray-600 font-semibold">Total NGOs</h3>
+              <span className="text-2xl">🏢</span>
             </div>
             <p className="text-3xl font-bold text-purple-600">
-              {analytics.average_funding_rate.toFixed(1)}%
+              {analytics.total_ngos.toLocaleString()}
             </p>
-            <p className="text-xs text-gray-500 mt-2">Goal achievement</p>
+            <p className="text-xs text-gray-500 mt-2">Organizations tracked</p>
           </div>
 
           {/* Top Category */}
@@ -216,7 +222,7 @@ export default function AnalyticsPage() {
             <p className="text-3xl font-bold text-orange-600">
               {analytics.top_category}
             </p>
-            <p className="text-xs text-gray-500 mt-2">Most popular</p>
+            <p className="text-xs text-gray-500 mt-2">Trending categories: {analytics.trending_categories.join(", ")}</p>
           </div>
         </div>
       </section>

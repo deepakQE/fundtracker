@@ -1,7 +1,10 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
+import { Suspense } from "react"
 import "./globals.css"
 import Link from "next/link"
+import NewsletterPopup from "@/components/NewsletterPopup"
+import GoogleAnalytics from "@/components/GoogleAnalytics"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,6 +23,9 @@ export const metadata: Metadata = {
   },
   description:
     "Explore and analyze trending fundraising campaigns across platforms. Compare funding progress, trust levels, and growth insights.",
+  alternates: {
+    canonical: "/",
+  },
 
   keywords: [
     "fundraising analytics tool",
@@ -78,6 +84,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
+        <Suspense fallback={null}>
+          <GoogleAnalytics />
+        </Suspense>
+
         {/* ===== Structured Data (SEO Boost) ===== */}
         <script
           type="application/ld+json"
@@ -85,6 +95,15 @@ export default function RootLayout({
             __html: JSON.stringify(structuredData),
           }}
         />
+
+        {/* ===== Google AdSense ===== */}
+        {process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID && (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}`}
+            crossOrigin="anonymous"
+          />
+        )}
 
         {/* ================= NAVBAR ================= */}
         <header className="bg-white border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
@@ -104,8 +123,16 @@ export default function RootLayout({
                 🔥 Trending
               </Link>
 
-              <Link href="/analytics" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                📊 Analytics
+              <Link href="/most-funded" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
+                💰 Most Funded
+              </Link>
+
+              <Link href="/ending-soon" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
+                ⏰ Ending Soon
+              </Link>
+
+              <Link href="/recently-funded" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
+                ✅ Recently Funded
               </Link>
 
               <Link href="/ngo-rankings" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
@@ -113,15 +140,15 @@ export default function RootLayout({
               </Link>
 
               <Link href="/compare" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                ⚖️ Compare Tool
+                ⚖️ Compare
               </Link>
 
-              <Link href="/platform-comparison" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                🔄 Platforms
+              <Link href="/blog" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
+                Blog
               </Link>
 
-              <Link href="/about" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
-                About
+              <Link href="/guides" className="text-gray-700 hover:text-emerald-600 transition-colors duration-200">
+                Guides
               </Link>
             </nav>
 
@@ -138,11 +165,16 @@ export default function RootLayout({
                   More
                 </summary>
                 <ul className="absolute right-0 mt-2 z-[60] w-52 p-2 shadow-lg bg-white rounded-lg border border-gray-100">
-                  <li><Link href="/analytics" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">📊 Analytics</Link></li>
+                  <li><Link href="/most-funded" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">💰 Most Funded</Link></li>
+                  <li><Link href="/ending-soon" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">⏰ Ending Soon</Link></li>
+                  <li><Link href="/recently-funded" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">✅ Recently Funded</Link></li>
                   <li><Link href="/ngo-rankings" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">🏆 Top NGOs</Link></li>
-                  <li><Link href="/compare" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">⚖️ Compare Tool</Link></li>
+                  <li><Link href="/compare" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">⚖️ Compare</Link></li>
+                  <li><Link href="/analytics" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">📊 Analytics</Link></li>
                   <li><Link href="/platform-comparison" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">🔄 Platforms</Link></li>
                   <li><Link href="/about" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">About</Link></li>
+                  <li><Link href="/blog" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">Blog</Link></li>
+                  <li><Link href="/guides" className="block px-3 py-2 text-gray-700 text-sm rounded-md hover:bg-gray-50">Guides</Link></li>
                 </ul>
               </details>
             </div>
@@ -154,10 +186,15 @@ export default function RootLayout({
                 <ul className="dropdown-content z-[1] menu p-2 shadow bg-white rounded-box w-48 border border-gray-100">
                   <li><Link href="/" className="text-gray-700 text-sm">Home</Link></li>
                   <li><Link href="/trending" className="text-gray-700 text-sm">🔥 Trending</Link></li>
-                  <li><Link href="/analytics" className="text-gray-700 text-sm">📊 Analytics</Link></li>
+                  <li><Link href="/most-funded" className="text-gray-700 text-sm">💰 Most Funded</Link></li>
+                  <li><Link href="/ending-soon" className="text-gray-700 text-sm">⏰ Ending Soon</Link></li>
+                  <li><Link href="/recently-funded" className="text-gray-700 text-sm">✅ Recently Funded</Link></li>
                   <li><Link href="/ngo-rankings" className="text-gray-700 text-sm">🏆 Top NGOs</Link></li>
-                  <li><Link href="/platform-comparison" className="text-gray-700 text-sm">⚖️ Compare</Link></li>
+                  <li><Link href="/compare" className="text-gray-700 text-sm">⚖️ Compare</Link></li>
+                  <li><Link href="/analytics" className="text-gray-700 text-sm">📊 Analytics</Link></li>
                   <li><Link href="/about" className="text-gray-700 text-sm">About</Link></li>
+                  <li><Link href="/blog" className="text-gray-700 text-sm">Blog</Link></li>
+                  <li><Link href="/guides" className="text-gray-700 text-sm">Guides</Link></li>
                 </ul>
               </details>
             </div>
@@ -166,6 +203,7 @@ export default function RootLayout({
 
         {/* ================= PAGE CONTENT ================= */}
         {children}
+        <NewsletterPopup />
 
         {/* ================= FOOTER ================= */}
         <footer className="bg-gray-900 text-gray-300 mt-32 border-t border-gray-800">
@@ -182,16 +220,20 @@ export default function RootLayout({
                 <ul className="space-y-2 text-sm">
                   <li><Link href="/" className="hover:text-white transition">Home</Link></li>
                   <li><Link href="/trending" className="hover:text-white transition">Trending</Link></li>
-                  <li><Link href="/analytics" className="hover:text-white transition">Analytics</Link></li>
+                  <li><Link href="/most-funded" className="hover:text-white transition">Most Funded</Link></li>
+                  <li><Link href="/ending-soon" className="hover:text-white transition">Ending Soon</Link></li>
+                  <li><Link href="/recently-funded" className="hover:text-white transition">Recently Funded</Link></li>
                   <li><Link href="/ngo-rankings" className="hover:text-white transition">Top NGOs</Link></li>
-                  <li><Link href="/platform-comparison" className="hover:text-white transition">Compare Platforms</Link></li>
+                  <li><Link href="/compare" className="hover:text-white transition">Compare</Link></li>
+                  <li><Link href="/analytics" className="hover:text-white transition">Analytics</Link></li>
                   <li><Link href="/about" className="hover:text-white transition">About</Link></li>
                 </ul>
               </div>
               <div>
                 <h4 className="text-white font-semibold mb-4">Resources</h4>
                 <ul className="space-y-2 text-sm">
-                  <li><a href="#" className="hover:text-white transition">Blog</a></li>
+                  <li><Link href="/blog" className="hover:text-white transition">Blog</Link></li>
+                  <li><Link href="/guides" className="hover:text-white transition">Donation Guides</Link></li>
                   <li><a href="#" className="hover:text-white transition">Help</a></li>
                   <li><a href="#" className="hover:text-white transition">API</a></li>
                 </ul>

@@ -1,5 +1,35 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## FundTracker Discovery Upgrade
+
+FundTracker now includes SEO-first discovery features:
+
+- Blog routes: `/blog`, `/blog/[slug]`
+- Guide routes: `/guides`, `/guides/[slug]`
+- NGO profiles: `/ngo/[name]`
+- Dynamic sitemap entries for blog posts, guides, campaigns, NGOs, and categories
+- Campaign-to-NGO linkage in sync flow
+- Newsletter popup and welcome email template payload
+
+### Blog File Location (App Router)
+
+Blog files are implemented at:
+
+- `app/blog/page.tsx`
+- `app/blog/[slug]/page.tsx`
+
+### Guide File Location
+
+- `app/guides/page.tsx`
+- `app/guides/[slug]/page.tsx`
+
+Required guide slugs:
+
+- `/guides/how-to-donate-safely`
+- `/guides/best-charities-for-education`
+- `/guides/top-ngos-helping-children`
+- `/guides/disaster-relief-donation-guide`
+
 ## Getting Started
 
 First, run the development server:
@@ -112,3 +142,16 @@ SELECT indexname
 FROM pg_indexes
 WHERE schemaname = 'public' AND tablename = 'campaigns';
 ```
+
+## Supabase Migration: Blog and NGO Discovery
+
+Migration file:
+
+- `supabase/migrations/202603060001_blog_ngos_discovery.sql`
+
+What it adds:
+
+- `ngos` table
+- `campaigns.ngo_id` relation to `ngos`
+- `blog_posts` table
+- `subscribers` table bootstrap (if missing)

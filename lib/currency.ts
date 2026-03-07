@@ -14,7 +14,7 @@ export function toSafeNumber(value: number | null | undefined): number {
 
 export function formatInrCurrency(
   value: number | null | undefined,
-  fallback = "Data unavailable"
+  fallback = "Data pending verification"
 ): string {
   if (!isValidMoneyValue(value)) {
     return fallback
@@ -23,10 +23,42 @@ export function formatInrCurrency(
   return INR_FORMATTER.format(value)
 }
 
+export function formatCompactCurrency(
+  value: number | null | undefined,
+  fallback = "Data pending verification"
+): string {
+  if (!isValidMoneyValue(value)) {
+    return fallback
+  }
+
+  const absValue = Math.abs(value)
+
+  if (absValue >= 1_00_00_00_000) {
+    // 1 billion+
+    return `₹${(value / 1_00_00_00_000).toFixed(1)}B+`
+  }
+  
+  if (absValue >= 1_00_00_000) {
+    // 1 crore+ = 10 million
+    return `₹${(value / 1_00_00_000).toFixed(1)}Cr+`
+  }
+  
+  if (absValue >= 1_00_000) {
+    // 1 lakh+ = 100K
+    return `₹${(value / 1_00_000).toFixed(1)}L+`
+  }
+  
+  if (absValue >= 1000) {
+    return `₹${(value / 1000).toFixed(1)}K+`
+  }
+
+  return INR_FORMATTER.format(value)
+}
+
 export function formatInrRange(
   amount: number | null | undefined,
   goal: number | null | undefined,
-  fallback = "Data unavailable"
+  fallback = "Data pending verification"
 ): string {
   if (!isValidMoneyValue(amount) || !isValidMoneyValue(goal)) {
     return fallback

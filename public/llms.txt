@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.fundtracker.me/sitemap.xml
+
+Description: FundTracker tracks global donation campaigns and NGOs.
